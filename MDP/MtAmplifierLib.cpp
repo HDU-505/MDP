@@ -1,21 +1,66 @@
 # include "pch.h"
 # include "Amplifier_LIB.h"
 # include<string>
+# include "bt/BleHandle.h"
+# include "bt/BLEComm.h"
+# include "BleDeviceManager.h"
+# include "ProtocolManager.h"
 
 // 应用程序版本信息
-const int32_t AP_MAJOR = 1;
-const int32_t AP_MINOR = 1;
+const int32_t AP_MAJOR = 3;
+const int32_t AP_MINOR = 2;
 const int32_t AP_BUILD = 0;
 const int32_t AP_REVISION = 0;
 
 // 库版本号
 const int32_t LIB_MAJOR = 1;
-const int32_t LIB_MINOR = 2025;
-const int32_t LIB_BUILD = 12;
-const int32_t LIB_REVISION = 29;
+const int32_t LIB_MINOR = 22;
+const int32_t LIB_BUILD = 2;
+const int32_t LIB_REVISION = 28;
 
 using namespace std;
 
+
+// SDK需要管理设备列表
+protocol::ProtocolManager protocolManager(RecordingMode::RM_NORMAL);
+BleDeviceManager bleDeviceManager(&protocolManager);
+
+// 回调函数：当蓝牙设备发送数据时被调用
+void MtBleDeviceRecvDataCallBack(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID, unsigned char* recvData, unsigned int length) {
+	// 打印收到的服务和特征的 UUID
+	//std::cout << "Received data from service UUID: " << std::hex << ServiceUUID << " characteristic UUID: " << CharacteristicUUID << std::dec << std::endl;
+	// 打印接收到的数据
+	//std::cout << "Received data (" << length << " bytes): ";
+	//for (unsigned int i = 0; i < length; ++i) {
+	//    std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)recvData[i] << " ";
+	//}
+	//std::cout << std::dec << std::endl; // Reset hex format to decimal for further prints
+
+	protocolManager.processData(recvData, length);
+	//assembler.checkTimeout();
+}
+
+void MtScanedBleDeviceCallBack(const char* ID, const char* PenName, const char* PenMac, int rssi, DataSection* DataSections, int DataSectionCount)
+{
+	// 逻辑需要完善
+	if (string(PenName).find("BT50") != string::npos) {
+		bleDeviceManager.addDevice(ID);
+	}
+
+	if (DataSectionCount < 0) {
+		cout << "  No data sections found." << endl;
+	}
+}
+
+void MtScanFinishBack()
+{
+	{
+		std::lock_guard<std::mutex> lock(bleDeviceManager.scanMtx);
+		bleDeviceManager.scanFinished = true;
+		bleDeviceManager.scanning = false;
+	}
+	bleDeviceManager.scanCv.notify_one();
+}
 
 /// <summary>    获取应用程序接口版本号 </summary>
  /// <param name="pAPIVersion">   [out] API版本
@@ -74,11 +119,12 @@ int ampEnumerateDevices(char* HWI, int32_t HWISize, const char* DeviceAddress, u
 		// 支持（BT）
 	}
 
-	// 获取设备信息
+	// 扫描设备
+	RegisterRecvBleDevice(MtScanedBleDeviceCallBack);
+	RegisterSacnBleDeviceFinish(MtScanFinishBack);
+	RegisterBleDeviceRecvData(MtBleDeviceRecvDataCallBack);
 
-
-
-	return AMP_OK;
+	return bleDeviceManager.searchDevice();
 }
 
 /// <summary>    获取设备地址 </summary>
@@ -86,13 +132,26 @@ int ampEnumerateDevices(char* HWI, int32_t HWISize, const char* DeviceAddress, u
 /// <param name="DeviceAddress">    设备地址缓冲区</param>
 /// <param name="BufferSize">       缓冲区大小</param>
 /// <returns>    . </returns>
-AMPAPI ampGetDeviceAddress(int32_t DeviceNr, char* DeviceAddress, int32_t BufferSize);
+int ampGetDeviceAddress(int32_t DeviceNr, char* DeviceAddress, int32_t BufferSize) {
+	if (!DeviceAddress || BufferSize <= 0) return AMP_ERR_PARAM;
+	if (DeviceNr != 0) return AMP_ERR_NODEVICE;
+	strncpy_s(DeviceAddress, BufferSize, "FAKE_BT_DEVICE_0", _TRUNCATE);
+	return AMP_OK;
+}
 
 /// <summary>    打开设备 </summary>
 /// <param name="DeviceNr">         从0开始的设备编号</param>
 /// <param name="DeviceHandle">     返回设备句柄</param>
 /// <returns>    . </returns>
-AMPAPI ampOpenDevice(int32_t DeviceNr, HANDLE* DeviceHandle);
+int ampOpenDevice(int32_t DeviceNr, HANDLE* DeviceHandle) {
+	HANDLE handle = bleDeviceManager.openDevice(DeviceNr);
+	if (!handle) {
+		return AMP_ERR_NODEVICE;
+	}
+	*DeviceHandle = handle;
+
+	return AMP_OK;
+}
 
 /// <summary>    获取属性值 </summary>
 /// <param name="DeviceHandle">     设备句柄</param>
@@ -103,8 +162,20 @@ AMPAPI ampOpenDevice(int32_t DeviceNr, HANDLE* DeviceHandle);
 /// <param name="PropertyID">       属性标识符</param>
 /// <param name="PropertyValue">    属性值缓冲区</param>
 /// <param name="ValueByteSize">    值缓冲区大小(字节)</param>
-AMPAPI ampGetProperty(HANDLE DeviceHandle, t_PropertyGroup PropertyGroup, uint32_t Index, int32_t PropertyID, void* PropertyValue, uint32_t ValueByteSize);
+int ampGetProperty(
+	HANDLE DeviceHandle,
+	t_PropertyGroup,
+	uint32_t,
+	int32_t,
+	void* PropertyValue,
+	uint32_t ValueByteSize
+) {
+	if (!DeviceHandle || !PropertyValue || ValueByteSize == 0)
+		return AMP_ERR_PARAM;
 
+	memset(PropertyValue, 0, ValueByteSize);
+	return AMP_OK;
+}
 /// <summary>    设置属性值 </summary>
 /// <param name="DeviceHandle">     设备句柄</param>
 /// <param name="PropertyGroup">    属性组选择</param>
@@ -114,8 +185,16 @@ AMPAPI ampGetProperty(HANDLE DeviceHandle, t_PropertyGroup PropertyGroup, uint32
 /// <param name="PropertyID">       属性标识符</param>
 /// <param name="PropertyValue">    属性值缓冲区</param>
 /// <param name="ValueByteSize">    值缓冲区大小(字节)</param>
-AMPAPI ampSetProperty(HANDLE DeviceHandle, t_PropertyGroup PropertyGroup, uint32_t Index, int32_t PropertyID, void* PropertyValue, uint32_t ValueByteSize);
-
+int ampSetProperty(
+	HANDLE,
+	t_PropertyGroup,
+	uint32_t,
+	int32_t,
+	void*,
+	uint32_t
+) {
+	return AMP_OK;
+}
 /// <summary>    获取属性范围和范围类型 </summary>
 /// <param name="DeviceHandle">     设备句柄</param>
 /// <param name="PropertyGroup">    属性组选择</param>
@@ -129,29 +208,49 @@ AMPAPI ampSetProperty(HANDLE DeviceHandle, t_PropertyGroup PropertyGroup, uint32
 ///                                 离散字符串属性范围作为以零结尾的字符串返回，元素以LF字符分隔</param>
 /// <param name="ArrayByteSize">    数组缓冲区大小(字节)</param>
 /// <param name="RangeType">        属性范围类型</param>
-AMPAPI ampGetPropertyRange(HANDLE DeviceHandle, t_PropertyGroup PropertyGroup, uint32_t Index, int32_t PropertyID, void* RangeArray, uint32_t* ArrayByteSize, t_PropertyRangeType* RangeType);
+int ampGetPropertyRange(
+	HANDLE,
+	t_PropertyGroup,
+	uint32_t,
+	int32_t,
+	void* RangeArray,
+	uint32_t* ArrayByteSize,
+	t_PropertyRangeType* RangeType
+) {
+	if (!RangeArray || !ArrayByteSize || !RangeType)
+		return AMP_ERR_PARAM;
 
+	memset(RangeArray, 0, *ArrayByteSize);
+	return AMP_OK;
+}
 /// <summary>    启动数据采集 </summary>
 /// <param name="DeviceHandle">     设备句柄</param>
 /// <returns>    . </returns>
-AMPAPI ampStartAcquisition(HANDLE DeviceHandle);
-
+int ampStartAcquisition(HANDLE DeviceHandle) {
+	return AMP_OK;
+}
 /// <summary>    停止数据采集 </summary>
 /// <param name="DeviceHandle">     设备句柄</param>
 /// <returns>    . </returns>
-AMPAPI ampStopAcquisition(HANDLE DeviceHandle);
+int ampStopAcquisition(HANDLE DeviceHandle) {
+	return AMP_OK;
+}
 
 /// <summary>    关闭设备 </summary>
 /// <param name="DeviceHandle">     设备句柄</param>
 /// <returns>    . </returns>
-AMPAPI ampCloseDevice(HANDLE DeviceHandle);
-
+int ampCloseDevice(HANDLE DeviceHandle) {
+	if (!DeviceHandle) return AMP_ERR_PARAM;
+	return AMP_OK;
+}
 /// <summary>    设置数字端口 </summary>
 /// <param name="DeviceHandle">     设备句柄</param>
 /// <param name="PortNumber">       端口号</param>
 /// <param name="value">            值</param>
 /// <returns>    . </returns>
-AMPAPI ampSetDigitalPort(HANDLE DeviceHandle, int32_t PortNumber, uint32_t value);
+int ampSetDigitalPort(HANDLE DeviceHandle, int32_t PortNumber, uint32_t value) {
+	return AMP_OK;
+}
 
 /// <summary>    从设备读取采集的数据
 ///              缓冲区中的通道顺序为
@@ -167,7 +266,9 @@ AMPAPI ampSetDigitalPort(HANDLE DeviceHandle, int32_t PortNumber, uint32_t value
 /// <param name="BufferSize">           接收缓冲区大小(字节)</param>
 /// <param name="RequestedSamples">     请求的样本数(尚未支持)</param>
 /// <returns>写入接收缓冲区的字节数</returns>
-AMPAPI ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t RequestedSamples);
+int ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t RequestedSamples) {
+	return AMP_OK;
+}
 
 /// <summary>    获取选定通道的阻抗数据
 ///              缓冲区中的通道顺序为
@@ -179,14 +280,20 @@ AMPAPI ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t
 /// <param name="Buffer">           接收缓冲区</param>
 /// <param name="BufferSize">       接收缓冲区大小(字节)</param>
 /// <returns>写入接收缓冲区的字节数</returns>
-AMPAPI ampGetImpedanceData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize);
+int ampGetImpedanceData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize) {
+	return AMP_OK;
+}
 
 /// <summary>    开始记录到内部内存 </summary>
 /// <param name="DeviceHandle">     设备句柄</param>
 /// <returns>    . </returns>
-AMPAPI ampStartFlashRecording(HANDLE DeviceHandle);
+int ampStartFlashRecording(HANDLE DeviceHandle) {
+	return AMP_OK;
+}
 
 /// <summary>    停止记录到内部内存 </summary>
 /// <param name="DeviceHandle">     设备句柄</param>
 /// <returns>    . </returns>
-AMPAPI ampStopFlashRecording(HANDLE DeviceHandle);
+int ampStopFlashRecording(HANDLE DeviceHandle) {
+	return AMP_OK;
+}

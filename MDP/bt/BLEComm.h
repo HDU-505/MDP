@@ -4,7 +4,7 @@
 #include "BleHandle.h"
 
 // 定义 BLE 设备句柄类型
-#define  BLEHandle void *
+#define  HANDLE void *
 
 
 
@@ -20,7 +20,7 @@ typedef struct DataSection {
 // CharacteristicUUID：特征值 UUID
 // recvData：接收到的数据指针
 // lenght：数据长度
-typedef void BleDeviceRecvDataCallBack(BLEHandle handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID, unsigned char* recvData, unsigned int lenght);
+typedef void BleDeviceRecvDataCallBack(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID, unsigned char* recvData, unsigned int lenght);
 
 // 扫描到 BLE 设备时的回调函数类型
 // ID：设备标识符
@@ -38,13 +38,13 @@ typedef void SacnBleDeviceFinishCallBack();
 // handle：设备句柄
 // PenMac：设备 MAC 地址
 // IsConnect：是否连接
-typedef void ConnectionBleDeviceStatusCallBack(BLEHandle handle, const char* PenMac, bool IsConnect);
+typedef void ConnectionBleDeviceStatusCallBack(HANDLE handle, const char* PenMac, bool IsConnect);
 
 // 注册监听某个特征值的 Notify 通知
 // handle：设备句柄
 // ServiceUUID：服务 UUID
 // CharacteristicUUID：特征值 UUID
-void RegisterReadNotify(BLEHandle handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID);
+void RegisterReadNotify(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID);
 
 
 // 所有已连接的 BLE 设备对象（按地址存储）
@@ -84,26 +84,26 @@ void ScanBLEDevice(int timeout);
 void StopScanBLEDevice();
 
 // 根据设备 ID 建立连接，返回设备句柄
-BLEHandle ConnectBLEDevice(char* ID);
+HANDLE ConnectBLEDevice(char* ID);
 
 // 获取指定设备的所有服务 UUID
 // UUIDArry：返回的 UUID 数组
 // ArryCount：返回的数量
-void GetAllServersUUID(BLEHandle handle, unsigned int* UUIDArry, unsigned int* ArryCount);
+void GetAllServersUUID(HANDLE handle, unsigned int* UUIDArry, unsigned int* ArryCount);
 
 // 获取指定服务下的所有特征值 UUID
-void GetCharcteristicByUUID(BLEHandle handle, unsigned int ServiceUUID, unsigned int* UUIDArry, unsigned int* ArryCount);
+void GetCharcteristicByUUID(HANDLE handle, unsigned int ServiceUUID, unsigned int* UUIDArry, unsigned int* ArryCount);
 
 // 查询某个特征值支持的操作（读、写、通知）
 // IsRead、IsWrite、IsNotify：返回该特征值是否支持对应操作
-void GetCharcteristicAction(BLEHandle handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID, bool* IsRead, bool* IsWrite, bool* IsNotify);
+void GetCharcteristicAction(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID, bool* IsRead, bool* IsWrite, bool* IsNotify);
 
 // 向某个特征值写入数据
-bool WriteDateByCharcteristic(BLEHandle handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID, unsigned char* buff, unsigned int lenght);
+bool WriteDateByCharcteristic(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID, unsigned char* buff, unsigned int lenght);
 
 // 读取某个特征值的数据
-void ReadDataByCharcteristic(BLEHandle handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID);
+void ReadDataByCharcteristic(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID);
 
 // 关闭与设备的连接，释放资源
-void CloseBLEDevice(BLEHandle handle);
+void CloseBLEDevice(HANDLE handle);
 

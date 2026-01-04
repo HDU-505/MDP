@@ -1,19 +1,16 @@
 #ifndef EEG_PROTOCOL_PARSER_H
 #define EEG_PROTOCOL_PARSER_H
-#include "pch.h"
-
-#include "ProtocolConstants.h"
+#include "Constants.h"
 #include <vector>
 #include <cstring>
 #include <iostream>
-#include "EEGDevice.h"
 
 
-namespace EEGProtocol {
+namespace protocol {
 
-    class EEGProtocolParser {
+    class Parser {
     public:
-        EEGProtocolParser() : sequenceID(0) {}
+        Parser() : sequenceID(0) {}
 
         // 构造控制指令数据包
         static std::vector<uint8_t> buildControlPacket(PacketType packetType);
@@ -36,11 +33,9 @@ namespace EEGProtocol {
         static uint16_t getSequenceIDFromRaw(const unsigned char* data, size_t len);
 
         // 解析 EEG 包到 float* buffer
-        static bool parseEEGPacketToBuffer(const unsigned char* recvData, size_t dataLen, EEGDevice& device);
+        static bool parseEEGPacketToBuffer(const unsigned char* recvData, size_t dataLen, std::vector<std::vector<float>> *buffer);
 		// 解析阻抗包到 float* buffer
-		static bool parseImpedancePacketToBuffer(const unsigned char* recvData, size_t dataLen, EEGDevice& device);
-
-
+		static bool parseImpedancePacketToBuffer(const unsigned char* recvData, size_t dataLen, std::vector<std::vector<float>>* buffer);
 
         // 获取序列号（用于构造数据包）
         uint16_t getSequenceID();

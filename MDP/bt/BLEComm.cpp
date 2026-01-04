@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "BLEComm.h"
 #include "BleHandle.h"
 #include <map>
@@ -150,7 +149,7 @@ void StopScanBLEDevice()
 	m_btWatcher.Stop();
 }
 
-BLEHandle ConnectBLEDevice(char* ID) {
+HANDLE ConnectBLEDevice(char* ID) {
 
 	map<string, BleHandle*>::iterator it = Pens.find(ID);
 
@@ -168,41 +167,41 @@ BLEHandle ConnectBLEDevice(char* ID) {
 	
 }
 
-void GetAllServersUUID(BLEHandle handle, unsigned int* UUIDArry, unsigned int* ArryCount)
+void GetAllServersUUID(HANDLE handle, unsigned int* UUIDArry, unsigned int* ArryCount)
 {
 	BleHandle* ble= (BleHandle*)handle;
 	ble->GetAllServersUUID(UUIDArry, ArryCount);
 }
 
 
-void GetCharcteristicByUUID(BLEHandle handle, unsigned int ServiceUUID, unsigned int* UUIDArry, unsigned int* ArryCount)
+void GetCharcteristicByUUID(HANDLE handle, unsigned int ServiceUUID, unsigned int* UUIDArry, unsigned int* ArryCount)
 {
 	BleHandle* ble = (BleHandle*)handle;
 	ble->GetCharcteristicByUUID(ServiceUUID, UUIDArry, ArryCount);
 }
 
-void GetCharcteristicAction(BLEHandle handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID, bool* IsRead, bool* IsWrite, bool* IsNotify)
+void GetCharcteristicAction(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID, bool* IsRead, bool* IsWrite, bool* IsNotify)
 {
 	BleHandle* ble = (BleHandle*)handle;
 	ble->GetCharcteristicAction(ServiceUUID, CharacteristicUUID, IsRead, IsWrite, IsNotify);
 }
 
-bool WriteDateByCharcteristic(BLEHandle handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID, unsigned char* buff, unsigned int lenght) {
+bool WriteDateByCharcteristic(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID, unsigned char* buff, unsigned int lenght) {
 	BleHandle* ble = (BleHandle*)handle;
 	return ble->WriteDateByCharcteristic(ServiceUUID, CharacteristicUUID, buff, lenght);
 }
 
-void ReadDataByCharcteristic(BLEHandle handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID) {
+void ReadDataByCharcteristic(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID) {
 	BleHandle* ble = (BleHandle*)handle;
 	ble->ReadDataByCharcteristic(ServiceUUID, CharacteristicUUID);
 }
 
-void RegisterReadNotify(BLEHandle handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID) {
+void RegisterReadNotify(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID) {
 	BleHandle* ble = (BleHandle*)handle;
 	ble->RegisterReadNotify(ServiceUUID, CharacteristicUUID);
 }
 
-void CloseBLEDevice(BLEHandle handle) {
+void CloseBLEDevice(HANDLE handle) {
 	BleHandle* ble = (BleHandle*)handle;
 	ble->CloseBLEDevice();
 	map<string, BleHandle*>::iterator it = Pens.find(ble->ID);

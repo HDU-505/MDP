@@ -1,5 +1,4 @@
-﻿#include "pch.h"
-#include "BleHandle.h"
+﻿#include "BleHandle.h"
 #include "BLEComm.h"
 map<string, BleHandle*>Pens;
 BleDeviceRecvDataCallBack* OnRecvDataCallBack = NULL;

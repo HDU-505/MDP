@@ -1,79 +1,143 @@
-// EEGPacketAssembler.cpp
-#include "pch.h"
-#include "EEGPacketAssembler.h"
+#include "Processor.h"
+#include <algorithm>
+#include <chrono>
+#include "Constants.h"
 
+namespace protocol {
 
-EEGPacketAssembler::EEGPacketAssembler(size_t packetLen, int timeoutMs)
-    : fixedPacketLength(packetLen), timeoutMs(timeoutMs) {
-    lastAppendTime = std::chrono::steady_clock::now();
-}
-
-void EEGPacketAssembler::appendData(const unsigned char* data, size_t len) {
-    
-    std::lock_guard<std::mutex> lock(mtx);
-    buffer.insert(buffer.end(), data, data + len);
-    lastAppendTime = std::chrono::steady_clock::now();
-    cv.notify_one();  // 通知可能有完整包
-    // 控制 buffer 大小
-    if (buffer.size() > 4096) {
-        buffer.erase(buffer.begin(), buffer.begin() + buffer.size() - 1024);
+    Processor::Processor(size_t packetLen, int timeoutMs)
+        : fixedPacketLength(packetLen),
+          timeoutMs(timeoutMs),
+          readPos(0),
+          lastAppendTime(std::chrono::steady_clock::now()) {
     }
-}
 
-bool EEGPacketAssembler::hasCompletePacket() {
-    std::lock_guard<std::mutex> lock(mtx);
-    size_t idx = findPacketStart();
-    return (idx != SIZE_MAX && idx + fixedPacketLength <= buffer.size());
-}
+    void Processor::appendData(const uint8_t* data, size_t len) {
+        {
+            std::lock_guard<std::mutex> lock(mtx);
 
-std::vector<uint8_t> EEGPacketAssembler::extractPacket() {
-    std::lock_guard<std::mutex> lock(mtx);
-    size_t idx = findPacketStart();
-    if (idx != SIZE_MAX && idx + fixedPacketLength <= buffer.size()) {
-        std::vector<uint8_t> packet(buffer.begin() + idx, buffer.begin() + idx + fixedPacketLength);
-        buffer.erase(buffer.begin(), buffer.begin() + idx + fixedPacketLength);
-        return packet;
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - lastAppendTime).count();
+
+            // 若超过超时时间，认为前一帧数据失效，重置缓冲区
+            if (elapsed > timeoutMs) {
+                buffer.clear();
+                readPos = 0;
+            }
+
+            buffer.insert(buffer.end(), data, data + len);
+            lastAppendTime = now;
+        }
+        cv.notify_one();
     }
-    return {};
-}
 
-std::vector<uint8_t> EEGPacketAssembler::waitAndExtractPacket() {
-    std::unique_lock<std::mutex> lock(mtx);
-    cv.wait(lock, [this] {
-        size_t idx = findPacketStart();
-        return (idx != SIZE_MAX && idx + fixedPacketLength <= buffer.size());
-        });
-    size_t idx = findPacketStart();
-    std::vector<uint8_t> packet(buffer.begin() + idx, buffer.begin() + idx + fixedPacketLength);
-    buffer.erase(buffer.begin(), buffer.begin() + idx + fixedPacketLength);
-    return packet;
-}
+    std::vector<std::vector<uint8_t>>
+    Processor::waitAndExtractPackets(size_t maxPackets) {
+        std::unique_lock<std::mutex> lock(mtx);
 
-void EEGPacketAssembler::checkTimeout() {
-    std::lock_guard<std::mutex> lock(mtx);
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastAppendTime).count();
-    if (elapsed > timeoutMs) {
-        buffer.clear();
+        bool ready = cv.wait_for(
+            lock,
+            std::chrono::milliseconds(timeoutMs),
+            [this] {
+                size_t idx = findPacketStart(readPos);
+
+                // 至少需要 8 字节才能解析到 payload length
+                if (idx == SIZE_MAX || idx + 8 > buffer.size()) {
+                    return false;
+                }
+
+                uint8_t lenH = buffer[idx + IDX_PAYLOAD_LEN_H];
+                uint8_t lenL = buffer[idx + IDX_PAYLOAD_LEN_L];
+                uint16_t payloadLen =
+                    (static_cast<uint16_t>(lenH) << 8) | lenL;
+
+                // 完整包长度 = 固定头 8 字节 + payload
+                return (idx + 8 + payloadLen) <= buffer.size();
+            });
+
+        if (!ready) {
+            return {};
+        }
+
+        return extractPacketsLocked(maxPackets);
     }
-}
 
-void EEGPacketAssembler::clearBuffer() {
-    std::lock_guard<std::mutex> lock(mtx);
-    buffer.clear();
-}
+    std::vector<std::vector<uint8_t>>
+    Processor::extractPackets(size_t maxPackets) {
+        std::lock_guard<std::mutex> lock(mtx);
+        return extractPacketsLocked(maxPackets);
+    }
 
-// 查找包头索引
-size_t EEGPacketAssembler::findPacketStart() {
-    for (size_t i = 0; i + 4 <= buffer.size(); ++i) {
-        if (buffer[i] == 0xAE && buffer[i + 1] == 0x12) {
-            return i;
+    std::vector<std::vector<uint8_t>>
+    Processor::extractPacketsLocked(size_t maxPackets) {
+        std::vector<std::vector<uint8_t>> packets;
+        packets.reserve(maxPackets);
+
+        size_t count = 0;
+
+        while (count < maxPackets) {
+            size_t idx = findPacketStart(readPos);
+
+            // 至少需要 8 字节解析头部
+            if (idx == SIZE_MAX || idx + 8 > buffer.size()) {
+                break;
+            }
+
+            uint8_t lenH = buffer[idx + IDX_PAYLOAD_LEN_H];
+            uint8_t lenL = buffer[idx + IDX_PAYLOAD_LEN_L];
+            uint16_t payloadLen =
+                (static_cast<uint16_t>(lenH) << 8) | lenL;
+
+            size_t totalPacketLen = 8 + payloadLen;
+
+            if (idx + totalPacketLen > buffer.size()) {
+                break;
+            }
+
+            packets.emplace_back(
+                buffer.begin() + idx,
+                buffer.begin() + idx + totalPacketLen
+            );
+
+            readPos = idx + totalPacketLen;
+            ++count;
+        }
+
+        compactIfNeeded();
+        return packets;
+    }
+
+    size_t Processor::findPacketStart(size_t from) const {
+        if (buffer.size() < 2 || from >= buffer.size()) {
+            return SIZE_MAX;
+        }
+
+        auto it = std::search(
+            buffer.begin() + from,
+            buffer.end(),
+            std::begin(PACKET_HEADER),
+            std::end(PACKET_HEADER)
+        );
+
+        if (it == buffer.end()) {
+            return SIZE_MAX;
+        }
+
+        return static_cast<size_t>(std::distance(buffer.begin(), it));
+    }
+
+    void Processor::compactIfNeeded() {
+        if (readPos > COMPACT_THRESHOLD && readPos >= buffer.size() / 2) {
+            buffer.erase(buffer.begin(), buffer.begin() + readPos);
+            readPos = 0;
         }
     }
-    // 没找到包头，丢掉无效数据
-    auto it = std::search(buffer.begin(), buffer.end(), std::begin("\xAE\x12"), std::end("\xAE\x12") - 1);
-    if (it != buffer.begin()) {
-        buffer.erase(buffer.begin(), it);
+
+    void Processor::clear() {
+        std::lock_guard<std::mutex> lock(mtx);
+        buffer.clear();
+        readPos = 0;
     }
-    return SIZE_MAX;
-}
+
+} // namespace protocol

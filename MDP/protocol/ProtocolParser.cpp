@@ -1,106 +1,106 @@
-#include "pch.h"
 
-#include "ProtocolParser.h"
+#include "Parser.h"
+#include <mutex>
+#include <stdexcept>
 
-namespace EEGProtocol {
+using namespace std;
 
-    // 构造控制指令数据包
-    std::vector<uint8_t> EEGProtocolParser::buildControlPacket(PacketType packetType) {
-        std::vector<uint8_t> data(HEADER_LENGTH);
+namespace protocol {
 
-        /*------------------------------------------------------------------------------------------------*/
-        // V2.1版本协议结构
-        /*------------------------------------------------------------------------------------------------*/
-        // 包头
-        //data[EEGProtocol::IDX_SYNC_HEADER_H] = (SYNC_HEADER >> 8) & 0xFF;  // 高字节
-        //data[EEGProtocol::IDX_SYNC_HEADER_L] = SYNC_HEADER & 0xFF;         // 低字节
-        //data[EEGProtocol::IDX_VERSION] = PROTOCOL_VERSION;
-        //data[EEGProtocol::IDX_PACKET_TYPE] = packetType;
-        //data[EEGProtocol::IDX_SEQ_ID_L] = 0x00;  // 初步版本，不考虑具体序列号
-        //data[EEGProtocol::IDX_SEQ_ID_H] = 0x00;
-        //data[EEGProtocol::IDX_PAYLOAD_LEN_L] = 0x00;  // 不需要有效负载
-        //data[EEGProtocol::IDX_PAYLOAD_LEN_H] = 0x00;
+    // Build control packet
+    std::vector<uint8_t> Parser::buildControlPacket(PacketType packetType) {
+        std::vector<uint8_t> data(HEADER_LENGTH + 4); // Header(4) + Seq(2) + Len(2)
+
+        // Sync Header
+        data[IDX_SYNC_HEADER_H] = (SYNC_HEADER >> 8) & 0xFF;
+        data[IDX_SYNC_HEADER_L] = SYNC_HEADER & 0xFF;
+        data[IDX_VERSION] = PROTOCOL_VERSION;
+        data[IDX_PACKET_TYPE] = packetType;
         
-
-        /*------------------------------------------------------------------------------------------------*/
-        // V2.5版本协议结构（暂时简单版本：2025-5-28）
-        /*------------------------------------------------------------------------------------------------*/
-        // 包头
-        data[EEGProtocol::IDX_SYNC_HEADER_H] = (SYNC_HEADER >> 8) & 0xFF;  // 高字节
-        data[EEGProtocol::IDX_SYNC_HEADER_L] = SYNC_HEADER & 0xFF;         // 低字节
-        data[EEGProtocol::IDX_VERSION] = PROTOCOL_VERSION;
-        data[EEGProtocol::IDX_PACKET_TYPE] = packetType;
+        // Seq ID (0)
+        data[IDX_SEQ_ID_H] = 0x00;
+        data[IDX_SEQ_ID_L] = 0x00;
+        
+        // Payload Length (0)
+        data[IDX_PAYLOAD_LEN_H] = 0x00;
+        data[IDX_PAYLOAD_LEN_L] = 0x00;
 
         return data;
     }
 
-    // 构造配置设置数据包（例如设置采样率）
-    std::vector<uint8_t> EEGProtocolParser::buildConfigPacket(PacketType packetType, uint16_t value) {
-        std::vector<uint8_t> data(HEADER_LENGTH + 2);
+    // Build config packet
+    std::vector<uint8_t> Parser::buildConfigPacket(PacketType packetType, uint16_t value) {
+        std::vector<uint8_t> data(HEADER_LENGTH + 4 + 2); // Header(4) + Seq(2) + Len(2) + Payload(2)
 
-        // 包头
-        data[EEGProtocol::IDX_SYNC_HEADER_H] = (SYNC_HEADER >> 8) & 0xFF;  // 高字节
-        data[EEGProtocol::IDX_SYNC_HEADER_L] = SYNC_HEADER & 0xFF;         // 低字节
-        data[EEGProtocol::IDX_VERSION] = PROTOCOL_VERSION;
-        data[EEGProtocol::IDX_PACKET_TYPE] = packetType;
-        data[EEGProtocol::IDX_SEQ_ID_L] = 0x00;  // 初步版本，不考虑具体序列号
-        data[EEGProtocol::IDX_SEQ_ID_H] = 0x00;
-        data[EEGProtocol::IDX_PAYLOAD_LEN_L] = 2;
-        data[EEGProtocol::IDX_PAYLOAD_LEN_H] = 0x00;
+        data[IDX_SYNC_HEADER_H] = (SYNC_HEADER >> 8) & 0xFF;
+        data[IDX_SYNC_HEADER_L] = SYNC_HEADER & 0xFF;
+        data[IDX_VERSION] = PROTOCOL_VERSION;
+        data[IDX_PACKET_TYPE] = packetType;
+        
+        data[IDX_SEQ_ID_H] = 0x00;
+        data[IDX_SEQ_ID_L] = 0x00;
+        
+        // Payload Length (2)
+        data[IDX_PAYLOAD_LEN_H] = 0x00;
+        data[IDX_PAYLOAD_LEN_L] = 0x02;
 
-        // 设置配置项 (例如设置采样率值)
-        data.push_back((value >> 8) & 0xFF);  // 高字节
-        data.push_back(value & 0xFF);  // 低字节
+        // Payload
+        data[8] = (value >> 8) & 0xFF;
+        data[9] = value & 0xFF;
+        
         return data;
     }
 
-    // 构造开始/停止数据流指令包
-    std::vector<uint8_t> EEGProtocolParser::buildStreamControlPacket(PacketType packetType, StreamMask streamMask) {
-        std::vector<uint8_t> data(HEADER_LENGTH + 1);
+    // Build stream control packet
+    std::vector<uint8_t> Parser::buildStreamControlPacket(PacketType packetType, StreamMask streamMask) {
+        std::vector<uint8_t> data(HEADER_LENGTH + 4 + 1); // Header(4) + Seq(2) + Len(2) + Payload(1)
 
-        // 包头
-        data[EEGProtocol::IDX_SYNC_HEADER_H] = (SYNC_HEADER >> 8) & 0xFF;  // 高字节
-        data[EEGProtocol::IDX_SYNC_HEADER_L] = SYNC_HEADER & 0xFF;         // 低字节
-        data[EEGProtocol::IDX_VERSION] = PROTOCOL_VERSION;
-        data[EEGProtocol::IDX_PACKET_TYPE] = packetType;
-        data[EEGProtocol::IDX_SEQ_ID_L] = 0x00;  // 初步版本，不考虑具体序列号
-        data[EEGProtocol::IDX_SEQ_ID_H] = 0x00;
-        data[EEGProtocol::IDX_PAYLOAD_LEN_L] = 1;
-        data[EEGProtocol::IDX_PAYLOAD_LEN_H] = 0x00;
+        data[IDX_SYNC_HEADER_H] = (SYNC_HEADER >> 8) & 0xFF;
+        data[IDX_SYNC_HEADER_L] = SYNC_HEADER & 0xFF;
+        data[IDX_VERSION] = PROTOCOL_VERSION;
+        data[IDX_PACKET_TYPE] = packetType;
+        
+        data[IDX_SEQ_ID_H] = 0x00;
+        data[IDX_SEQ_ID_L] = 0x00;
+        
+        // Payload Length (1)
+        data[IDX_PAYLOAD_LEN_H] = 0x00;
+        data[IDX_PAYLOAD_LEN_L] = 0x01;
 
-        // 添加流掩码
-        data.push_back(static_cast<uint8_t>(streamMask));
-
-        return data;
-    }
-
-    // 构造响应数据包（例如成功/失败）
-    std::vector<uint8_t> EEGProtocolParser::buildResponsePacket(ResponseCode responseCode) {
-        std::vector<uint8_t> data(HEADER_LENGTH + 1);
-
-        // 包头
-        data[EEGProtocol::IDX_SYNC_HEADER_H] = (SYNC_HEADER >> 8) & 0xFF;  // 高字节
-        data[EEGProtocol::IDX_SYNC_HEADER_L] = SYNC_HEADER & 0xFF;         // 低字节
-        data[EEGProtocol::IDX_VERSION] = PROTOCOL_VERSION;
-        data[EEGProtocol::IDX_PACKET_TYPE] = PKT_PING;  // 对于响应，可以设置为PING包类型
-        data[EEGProtocol::IDX_SEQ_ID_L] = 0x00;  // 初步版本，不考虑具体序列号
-        data[EEGProtocol::IDX_SEQ_ID_H] = 0x00;
-        data[EEGProtocol::IDX_PAYLOAD_LEN_L] = 1;
-        data[EEGProtocol::IDX_PAYLOAD_LEN_H] = 0x00;
-
-        // 添加响应码
-        data.push_back(static_cast<uint8_t>(responseCode));
+        // Payload
+        data[8] = static_cast<uint8_t>(streamMask);
 
         return data;
     }
 
-    // 解析指令响应数据包
-    ResponseCode EEGProtocolParser::parseResponse(const std::vector<uint8_t>& data) {
-        if (data.size() < HEADER_LENGTH) {
-            throw std::invalid_argument("Invalid response packet size");
+    // Build response packet
+    std::vector<uint8_t> Parser::buildResponsePacket(ResponseCode responseCode) {
+        std::vector<uint8_t> data(HEADER_LENGTH + 4 + 1);
+
+        data[IDX_SYNC_HEADER_H] = (SYNC_HEADER >> 8) & 0xFF;
+        data[IDX_SYNC_HEADER_L] = SYNC_HEADER & 0xFF;
+        data[IDX_VERSION] = PROTOCOL_VERSION;
+        data[IDX_PACKET_TYPE] = PKT_PING; 
+        
+        data[IDX_SEQ_ID_H] = 0x00;
+        data[IDX_SEQ_ID_L] = 0x00;
+        
+        data[IDX_PAYLOAD_LEN_H] = 0x00;
+        data[IDX_PAYLOAD_LEN_L] = 0x01;
+
+        data[8] = static_cast<uint8_t>(responseCode);
+
+        return data;
+    }
+
+    // Parse response
+    ResponseCode Parser::parseResponse(const std::vector<uint8_t>& data) {
+        if (data.size() < 9) { // Header(4) + Seq(2) + Len(2) + Payload(1)
+            return RESP_ERROR;
         }
 
-        uint8_t responseCode = data[HEADER_LENGTH];
+        // Payload starts at 8
+        uint8_t responseCode = data[8];
 
         switch (responseCode) {
         case RESP_SUCCESS:
@@ -110,115 +110,104 @@ namespace EEGProtocol {
         case RESP_UNSUPPORTED:
             return RESP_UNSUPPORTED;
         default:
-            throw std::invalid_argument("Unknown response code");
+            return RESP_ERROR;
         }
     }
 
-    // 提取 packet type（第 4 字节）
-    uint8_t EEGProtocolParser::getPacketTypeFromRaw(const unsigned char* data, size_t len) {
+    uint8_t Parser::getPacketTypeFromRaw(const unsigned char* data, size_t len) {
         if (data == nullptr || len < HEADER_LENGTH) return 0xFF;
         return data[IDX_PACKET_TYPE];
     }
 
-    // 提取 payload length（第 7-8 字节）
-    uint16_t EEGProtocolParser::getPayloadLengthFromRaw(const unsigned char* data, size_t len) {
-        if (data == nullptr || len < HEADER_LENGTH) return 0;
+    uint16_t Parser::getPayloadLengthFromRaw(const unsigned char* data, size_t len) {
+        if (data == nullptr || len < 8) return 0;
         return (static_cast<uint16_t>(data[IDX_PAYLOAD_LEN_H]) << 8) | data[IDX_PAYLOAD_LEN_L];
     }
 
-    // 提取序列号（第 5-6 字节）
-    uint16_t EEGProtocolParser::getSequenceIDFromRaw(const unsigned char* data, size_t len) {
-        if (data == nullptr || len < HEADER_LENGTH) return 0;
+    uint16_t Parser::getSequenceIDFromRaw(const unsigned char* data, size_t len) {
+        if (data == nullptr || len < 6) return 0;
         return (static_cast<uint16_t>(data[IDX_SEQ_ID_H]) << 8) | data[IDX_SEQ_ID_L];
     }
 
-    // 解析 EEG 数据包（压缩的 3 字节 * 8）
-    bool EEGProtocolParser::parseEEGPacketToBuffer(
-        const unsigned char* recvData, size_t dataLen, EEGDevice& device)
+    uint16_t Parser::getSequenceID() {
+        return sequenceID;
+    }
+
+    // Parse EEG Packet
+    bool Parser::parseEEGPacketToBuffer(
+        const unsigned char* recvData, size_t dataLen, vector<vector<float>>* buffer)
     {
-        //float* floatBuffer = static_cast<float*>(device.Buffer);
-        vector<float> floatBuffer(10,0);
-        size_t payloadStart = 6;
-        const auto& channels = device.channels;
-        size_t enabled_channel_size = device.getEnabledChannelSize();
+        if (recvData == nullptr || buffer == nullptr) return false;
 
-        size_t bufIndex = 0;
+        // Header (4) + Seq(2) + Len(2) = 8 bytes overhead
+        size_t payloadStart = 8;
+        
+        if (dataLen < payloadStart + EEG_PAYLOAD_SIZE) return false;
 
-        for (int ch = 0; ch < 8; ++ch) {
-            if (!channels[ch].enable) continue;
+        vector<float> floatBuffer;
+        floatBuffer.reserve(EEG_CHANNEL_COUNT);
 
-            size_t offset = payloadStart + ch * 3;
-            if (offset + 2 >= dataLen) return false;
-
+        for (int ch = 0; ch < EEG_CHANNEL_COUNT; ++ch) {
+            size_t offset = payloadStart + ch * EEG_CHANNEL_BYTES;
+            
+            // 24-bit big endian
             uint32_t raw = ((uint32_t)recvData[offset] << 16) |
                 ((uint32_t)recvData[offset + 1] << 8) |
                 ((uint32_t)recvData[offset + 2]);
 
-            if (raw & 0x800000) raw |= 0xFF000000;  // 符号扩展
+            // Sign extension
+            if (raw & 0x800000) raw |= 0xFF000000;
 
             int32_t signedVal = static_cast<int32_t>(raw);
 
+            // Scale to uV (example conversion factor, adjust as needed)
             float value = static_cast<float>(signedVal);
-            value *= (2 * 4.5 / 16777215);
-            value *= (1000 * 1000 / 24);
+            value *= (2.0f * 4.5f / 16777215.0f); // Vref = 4.5V, Gain = 24?
+            value *= (1000.0f * 1000.0f / 24.0f); // Convert to uV
 
-            floatBuffer[bufIndex++] = value;
+            floatBuffer.push_back(value);
         }
-        floatBuffer[8] = 0;
-        floatBuffer[9] = 0;
-        std::unique_lock<std::mutex> lock(device.sdkDataBufferMtx);
-        device.sdkDataBuffer.push_back(floatBuffer);
-        lock.unlock();
+        
+        buffer->push_back(floatBuffer);
         return true;
     }
 
-	// 解析阻抗数据包（压缩的 3 字节 * 8）
-    bool EEGProtocolParser::parseImpedancePacketToBuffer(
+    // Parse Impedance Packet
+    bool Parser::parseImpedancePacketToBuffer(
         const unsigned char* recvData, size_t dataLen,
-        EEGDevice& device)
+        std::vector<std::vector<float>>* buffer)
     {
+        if (recvData == nullptr || buffer == nullptr) return false;
 
-        size_t enabled_channel_size = device.getEnabledChannelSize();
+        size_t payloadStart = 8;
+        
+        if (dataLen < payloadStart + IMPEDANCE_PAYLOAD_SIZE) return false;
 
+        vector<float> floatBuffer;
+        floatBuffer.reserve(IMPEDANCE_CHANNEL_COUNT);
 
-        if (dataLen < 6) return false; // 防止越界访问
+        for (int ch = 0; ch < IMPEDANCE_CHANNEL_COUNT; ++ch) {
+            size_t offset = payloadStart + ch * IMPEDANCE_CHANNEL_BYTES;
 
-        //float* floatBuffer = static_cast<float*>(device.Buffer);
-        vector<float> floatBuffer(10, 0);
-        const auto& channels = device.channels;
+             // 24-bit big endian
+            uint32_t raw = ((uint32_t)recvData[offset] << 16) |
+                ((uint32_t)recvData[offset + 1] << 8) |
+                ((uint32_t)recvData[offset + 2]);
 
-        uint16_t raw = (recvData[4] << 8) | recvData[5]; // 大端
-
-        size_t bufIndex = 0;
-
-        // 通道 0~7（bit15~bit8）
-        for (int ch = 0; ch < 8 && ch < static_cast<int>(channels.size()); ++ch) {
-            if (!channels[ch].enable) continue;
-            int bitIndex = 15 - ch;
-            int bitValue = (raw >> bitIndex) & 0x01;
-            floatBuffer[bufIndex++] = static_cast<float>(bitValue);
+             // Assuming impedance is also signed or unsigned? 
+             // Usually impedance is positive, but using same parsing logic for now
+            if (raw & 0x800000) raw |= 0xFF000000;
+            int32_t signedVal = static_cast<int32_t>(raw);
+            
+            float value = static_cast<float>(signedVal);
+            // Impedance conversion might be different, but keeping it raw-ish or same scale for now
+            // user can adjust conversion factor
+            
+            floatBuffer.push_back(value);
         }
 
-        // 通道 8：bit7 ~ bit4
-        if (channels.size() > 8 && channels[8].enable) {
-            floatBuffer[bufIndex++] = static_cast<float>((raw >> 4) & 0x0F);
-        }
-
-        // 通道 9：bit3 ~ bit0
-        if (channels.size() > 9 && channels[9].enable) {
-            floatBuffer[bufIndex++] = static_cast<float>(raw & 0x0F);
-        }
-
-        std::unique_lock<std::mutex> lock(device.sdkDataBufferMtx);
-        device.sdkDataBuffer.push_back(floatBuffer);
-        lock.unlock();
+        buffer->push_back(floatBuffer);
         return true;
     }
 
-
-    // 获取序列号（用于构造数据包）
-    uint16_t EEGProtocolParser::getSequenceID() {
-        return sequenceID++;
-    }
-
-} // namespace EEGProtocol
+}
