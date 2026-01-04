@@ -62,6 +62,15 @@ void MtScanFinishBack()
 	bleDeviceManager.scanCv.notify_one();
 }
 
+void MtConnectionBleDeviceStatusCallBack(HANDLE handle, const char* PenMac, bool IsConnect) {
+	{
+		std::lock_guard<std::mutex> lock(bleDeviceManager.connMtx);
+		bleDeviceManager.isConnected = IsConnect;
+
+	}
+	bleDeviceManager.connCv.notify_one();
+}
+
 /// <summary>    获取应用程序接口版本号 </summary>
  /// <param name="pAPIVersion">   [out] API版本
  ///          修订号 = 0
@@ -227,21 +236,20 @@ int ampGetPropertyRange(
 /// <param name="DeviceHandle">     设备句柄</param>
 /// <returns>    . </returns>
 int ampStartAcquisition(HANDLE DeviceHandle) {
-	return AMP_OK;
+	return bleDeviceManager.startAcquisition(DeviceHandle) ? AMP_OK : AMP_ERR_BUSY;
 }
 /// <summary>    停止数据采集 </summary>
 /// <param name="DeviceHandle">     设备句柄</param>
 /// <returns>    . </returns>
 int ampStopAcquisition(HANDLE DeviceHandle) {
-	return AMP_OK;
+	return bleDeviceManager.stopAcquisition(DeviceHandle) ? AMP_OK : AMP_ERR_BUSY;
 }
 
 /// <summary>    关闭设备 </summary>
 /// <param name="DeviceHandle">     设备句柄</param>
 /// <returns>    . </returns>
 int ampCloseDevice(HANDLE DeviceHandle) {
-	if (!DeviceHandle) return AMP_ERR_PARAM;
-	return AMP_OK;
+	return bleDeviceManager.closeDevice(DeviceHandle) ? AMP_OK : AMP_ERR_BUSY;
 }
 /// <summary>    设置数字端口 </summary>
 /// <param name="DeviceHandle">     设备句柄</param>
@@ -249,7 +257,7 @@ int ampCloseDevice(HANDLE DeviceHandle) {
 /// <param name="value">            值</param>
 /// <returns>    . </returns>
 int ampSetDigitalPort(HANDLE DeviceHandle, int32_t PortNumber, uint32_t value) {
-	return AMP_OK;
+	return AMP_ERR_NOSUPPORT;
 }
 
 /// <summary>    从设备读取采集的数据
@@ -267,8 +275,39 @@ int ampSetDigitalPort(HANDLE DeviceHandle, int32_t PortNumber, uint32_t value) {
 /// <param name="RequestedSamples">     请求的样本数(尚未支持)</param>
 /// <returns>写入接收缓冲区的字节数</returns>
 int ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t RequestedSamples) {
-	return AMP_OK;
+	int sampleLen = protocolManager.getSampleLength();
+	int maxSampleCount = BufferSize / sampleLen;
+	if (maxSampleCount <= 0) {
+		return IF_ERR_PARAMETER;
+	}
+
+	// 获取数据
+	std::vector<std::vector<uint8_t>> data = protocolManager.getEEGData(maxSampleCount);
+
+	// 写入缓冲区
+	uint8_t* buf = static_cast<uint8_t*>(Buffer);
+	size_t offset = 0;
+
+	for (size_t i = 0; i < data.size(); i++) {
+		if (data[i].size() != sampleLen) {
+			// 安全检查，防止长度不一致
+			return IF_ERR_PARAMETER;
+		}
+
+		if (offset + sampleLen > static_cast<size_t>(BufferSize)) {
+			// 缓冲区空间不足
+			break;
+		}
+
+		// 直接 memcpy 一行 Sample
+		std::memcpy(buf + offset, data[i].data(), sampleLen);
+		offset += sampleLen;
+	}
+
+	// 返回实际写入的 Sample 数量
+	return static_cast<int>(offset / sampleLen);
 }
+
 
 /// <summary>    获取选定通道的阻抗数据
 ///              缓冲区中的通道顺序为

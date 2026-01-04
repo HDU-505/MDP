@@ -70,7 +70,7 @@ namespace protocol {
     }
 
     std::vector<std::vector<uint8_t>>
-    Processor::extractPacketsLocked(size_t maxPackets) {
+        Processor::extractPacketsLocked(size_t maxPackets) {
         std::vector<std::vector<uint8_t>> packets;
         packets.reserve(maxPackets);
 
@@ -79,7 +79,6 @@ namespace protocol {
         while (count < maxPackets) {
             size_t idx = findPacketStart(readPos);
 
-            // 至少需要 8 字节解析头部
             if (idx == SIZE_MAX || idx + 8 > buffer.size()) {
                 break;
             }
@@ -95,10 +94,22 @@ namespace protocol {
                 break;
             }
 
-            packets.emplace_back(
-                buffer.begin() + idx,
-                buffer.begin() + idx + totalPacketLen
-            );
+            // 拷贝原始 packet
+            std::vector<uint8_t> pkt(buffer.begin() + idx,
+                buffer.begin() + idx + totalPacketLen);
+
+            // 在 payload 前插入计数编码（8 字节 little-endian）
+            uint64_t counter = packetCounter++;
+            uint8_t counterBytes[8];
+            for (int i = 0; i < 8; ++i) {
+                counterBytes[i] = static_cast<uint8_t>((counter >> (8 * i)) & 0xFF);
+            }
+
+            // 将计数编码插入到 packet 开头或者特定位置
+            pkt.insert(pkt.begin() + 8, counterBytes, counterBytes + 8);
+            // 注意：插入后 totalPacketLen 需要上层处理适配
+
+            packets.emplace_back(std::move(pkt));
 
             readPos = idx + totalPacketLen;
             ++count;
@@ -107,6 +118,7 @@ namespace protocol {
         compactIfNeeded();
         return packets;
     }
+
 
     size_t Processor::findPacketStart(size_t from) const {
         if (buffer.size() < 2 || from >= buffer.size()) {

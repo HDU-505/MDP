@@ -3,6 +3,27 @@
 
 namespace protocol {
 
+    enum ComandType : uint8_t {
+        COMAND_CONTROL = 0x01,
+        COMAND_CONFIG = 0x02,
+        COMAND_STREAM = 0x03
+    };
+
+    enum HeaderIndex : uint8_t {
+        IDX_SYNC_HEADER_H = 0,
+        IDX_SYNC_HEADER_L,
+        IDX_VERSION,
+        IDX_PACKET_TYPE,
+
+        IDX_HEADER_END,  // 永远放最后
+
+        IDX_SEQ_ID_H,
+        IDX_SEQ_ID_L,
+        IDX_PAYLOAD_LEN_H,
+        IDX_PAYLOAD_LEN_L,
+
+    };
+
     // ================= 同步头定义 =================
     // 数据包同步字（2 字节），用于帧起始定位
     constexpr uint16_t SYNC_HEADER = 0xAE12;
@@ -25,7 +46,8 @@ namespace protocol {
     constexpr uint8_t  PROTOCOL_VERSION = 0x02;
 
     // 固定协议头长度（不包含 payload）
-    constexpr uint8_t  HEADER_LENGTH = 4;
+    constexpr size_t HEADER_LENGTH =
+        static_cast<size_t>(HeaderIndex::IDX_HEADER_END);
 
     // ================= EEG 数据相关定义 =================
     // EEG 通道数量
@@ -116,17 +138,6 @@ namespace protocol {
     constexpr size_t COMPACT_THRESHOLD = 2048;
 
     // ================= 协议头字段索引 =================
-    // 定义各字段在原始 buffer 中的字节偏移
-    enum HeaderIndex : uint8_t {
-        IDX_SYNC_HEADER_H = 0, // 同步头高字节
-        IDX_SYNC_HEADER_L = 1, // 同步头低字节
-        IDX_VERSION = 2, // 协议版本
-        IDX_PACKET_TYPE = 3, // 数据包类型
-        IDX_SEQ_ID_H = 4, // 序列号高字节
-        IDX_SEQ_ID_L = 5, // 序列号低字节
-        IDX_PAYLOAD_LEN_H = 6, // payload 长度高字节
-        IDX_PAYLOAD_LEN_L = 7, // payload 长度低字节
-    };
 
     // ================= 模块 ID 范围 =================
     // 合法的模块编号区间（用于多模块设备扩展）

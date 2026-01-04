@@ -9,21 +9,30 @@ namespace protocol {
 
     // Build control packet
     std::vector<uint8_t> Parser::buildControlPacket(PacketType packetType) {
-        std::vector<uint8_t> data(HEADER_LENGTH + 4); // Header(4) + Seq(2) + Len(2)
+        std::vector<uint8_t> data(HEADER_LENGTH); // Header(4) + Seq(2) + Len(2)
 
-        // Sync Header
-        data[IDX_SYNC_HEADER_H] = (SYNC_HEADER >> 8) & 0xFF;
-        data[IDX_SYNC_HEADER_L] = SYNC_HEADER & 0xFF;
+        //// Sync Header
+        //data[IDX_SYNC_HEADER_H] = (SYNC_HEADER >> 8) & 0xFF;
+        //data[IDX_SYNC_HEADER_L] = SYNC_HEADER & 0xFF;
+        //data[IDX_VERSION] = PROTOCOL_VERSION;
+        //data[IDX_PACKET_TYPE] = packetType;
+        //
+        //// Seq ID (0)
+        //data[IDX_SEQ_ID_H] = 0x00;
+        //data[IDX_SEQ_ID_L] = 0x00;
+        //
+        //// Payload Length (0)
+        //data[IDX_PAYLOAD_LEN_H] = 0x00;
+        //data[IDX_PAYLOAD_LEN_L] = 0x00;
+
+                /*------------------------------------------------------------------------------------------------*/
+        // V2.5版本协议结构（暂时简单版本：2025-5-28）
+        /*------------------------------------------------------------------------------------------------*/
+        // 包头
+        data[IDX_SYNC_HEADER_H] = (SYNC_HEADER >> 8) & 0xFF;  // 高字节
+        data[IDX_SYNC_HEADER_L] = SYNC_HEADER & 0xFF;         // 低字节
         data[IDX_VERSION] = PROTOCOL_VERSION;
         data[IDX_PACKET_TYPE] = packetType;
-        
-        // Seq ID (0)
-        data[IDX_SEQ_ID_H] = 0x00;
-        data[IDX_SEQ_ID_L] = 0x00;
-        
-        // Payload Length (0)
-        data[IDX_PAYLOAD_LEN_H] = 0x00;
-        data[IDX_PAYLOAD_LEN_L] = 0x00;
 
         return data;
     }
