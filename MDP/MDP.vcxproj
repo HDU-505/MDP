@@ -72,6 +72,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <TargetName>BVBLELib</TargetName>
+    <OutDir>E:\GitHub\WorkSpace\MDP-feat-protocal-szf\MDP\x64\Debug</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -148,6 +149,7 @@
     <ClInclude Include="BleDeviceManager.h" />
     <ClInclude Include="bt\BLEComm.h" />
     <ClInclude Include="bt\BleHandle.h" />
+    <ClInclude Include="PropertyUtil.h" />
     <ClInclude Include="ProtocolManager.h" />
     <ClInclude Include="protocol\Processor.h" />
     <ClInclude Include="protocol\Constants.h" />
@@ -167,6 +169,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="PropertyUtil.cpp" />
     <ClCompile Include="ProtocolManager.cpp" />
     <ClCompile Include="protocol\EEGPacketAssembler.cpp" />
     <ClCompile Include="protocol\ProtocolParser.cpp" />
