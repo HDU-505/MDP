@@ -4,7 +4,7 @@
 #include <complex>
 
 // 工具类：用于处理EEG数据并计算阻抗
-class GetImpedance
+class ImpedanceUtil
 {
 public:
     /// <summary>   构造函数 </summary>
@@ -12,8 +12,8 @@ public:
     /// <param name="targetFreq">    目标频率(f_loff) </param>
     /// <param name="windowSize">    滑动窗口大小(采样点数) </param>
     /// <param name="stepSize">      滑动步长(采样点数) </param>
-    GetImpedance(float samplingRate, float targetFreq, int windowSize, int stepSize);
-    ~GetImpedance();
+    ImpedanceUtil(float samplingRate, float targetFreq, int windowSize, int stepSize);
+    ~ImpedanceUtil();
 
     /// <summary>   处理单行EEG时域数据 (一个通道的数据？) </summary>
     /// <param name="data">  时域信号向量 </param>
