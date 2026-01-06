@@ -2,3 +2,8 @@
 x64/
 MDP/x64/
 Test/x64/
+
+# 忽略 Visual Studio 项目文件
+*.vcxproj
+*.filters
+*.vcxproj.user

@@ -57,6 +57,9 @@
     <ClInclude Include="Version.h">
       <Filter>头文件\protocol</Filter>
     </ClInclude>
+    <ClInclude Include="PropertyUtil.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -85,6 +88,9 @@
     </ClCompile>
     <ClCompile Include="ProtocolManager.cpp">
       <Filter>源文件\protocol</Filter>
+    </ClCompile>
+    <ClCompile Include="PropertyUtil.cpp">
+      <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

@@ -5,7 +5,7 @@ VisualStudioVersion = 17.12.35527.113
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MDP", "MDP\MDP.vcxproj", "{E6BDCE24-9CFB-4251-8050-1343AAB40500}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Test", "..\..\..\temp\MindtoothTest\Test\Test\Test.vcxproj", "{71A582FC-4AAA-4D55-A5C3-9F6CF681A6C0}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Test", "Test\Test.vcxproj", "{71A582FC-4AAA-4D55-A5C3-9F6CF681A6C0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -34,5 +34,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {11F70E97-E52A-4A6C-A9A7-EFBB4DC33FB3}
 	EndGlobalSection
 EndGlobal

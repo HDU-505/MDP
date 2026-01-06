@@ -1,4 +1,4 @@
-#include "getImpedance.h"
+#include "ImpedanceUtil.h"
 #include <numeric>
 #include <iostream>
 #include <cmath>
@@ -8,17 +8,17 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-GetImpedance::GetImpedance(float samplingRate, float targetFreq, int windowSize, int stepSize)
+ImpedanceUtil::ImpedanceUtil(float samplingRate, float targetFreq, int windowSize, int stepSize)
     : m_samplingRate(samplingRate), m_targetFreq(targetFreq), m_windowSize(windowSize), m_stepSize(stepSize)
 {
     InitWindow();
 }
 
-GetImpedance::~GetImpedance()
+ImpedanceUtil::~ImpedanceUtil()
 {
 }
 
-void GetImpedance::InitWindow()
+void ImpedanceUtil::InitWindow()
 {
     m_windowFunc.resize(m_windowSize);
     for (int i = 0; i < m_windowSize; ++i)
@@ -29,7 +29,7 @@ void GetImpedance::InitWindow()
     }
 }
 
-std::vector<float> GetImpedance::ImpedanceCalculation(const std::vector<float>& data)
+std::vector<float> ImpedanceUtil::ImpedanceCalculation(const std::vector<float>& data)
 {
     const float I_SOURCE_AMPS = 6.0e-9f; //注入电流6nA
     double v_ref = 4500;           // 参考电压 4500mV
@@ -68,7 +68,7 @@ std::vector<float> GetImpedance::ImpedanceCalculation(const std::vector<float>& 
     return impedances;
 }
 
-float GetImpedance::CalculateAmplitude(const std::vector<float>& windowData)
+float ImpedanceUtil::CalculateAmplitude(const std::vector<float>& windowData)
 {
     // 使用单频点DFT (Correlation) 提取特定频率 f_loff 的幅值
     // 公式: X(f) = sum(x[n] * exp(-j * 2 * pi * f * n / fs))
@@ -100,7 +100,7 @@ float GetImpedance::CalculateAmplitude(const std::vector<float>& windowData)
         return 0.0f;
 }
 
-float GetImpedance::CalculateImpedance(int32_t adc_code, double v_ref, double gain, double i_source)
+float ImpedanceUtil::CalculateImpedance(int32_t adc_code, double v_ref, double gain, double i_source)
 {
     const double ADC_SCALE_FACTOR = 8388608.0;
 
@@ -132,7 +132,7 @@ float GetImpedance::CalculateImpedance(int32_t adc_code, double v_ref, double ga
 //    std::cout << "Target Freq: " << targetFreq << " Hz" << std::endl;
 //
 //    // 实例化计算器
-//    ImpedanceCalculator calculator(samplingRate, targetFreq, windowSize, stepSize);
+//    ImpedanceUtil calculator(samplingRate, targetFreq, windowSize, stepSize);
 //
 //    // --- CSV 读取配置 ---
 //    std::string csvFile = "p_test2_open.csv";   // CSV文件名

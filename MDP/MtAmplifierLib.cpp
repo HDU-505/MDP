@@ -5,6 +5,7 @@
 # include "bt/BLEComm.h"
 # include "BleDeviceManager.h"
 # include "ProtocolManager.h"
+# include "PropertyUtil.h"
 
 // 应用程序版本信息
 const int32_t AP_MAJOR = 3;
@@ -173,9 +174,9 @@ int ampOpenDevice(int32_t DeviceNr, HANDLE* DeviceHandle) {
 /// <param name="ValueByteSize">    值缓冲区大小(字节)</param>
 int ampGetProperty(
 	HANDLE DeviceHandle,
-	t_PropertyGroup,
-	uint32_t,
-	int32_t,
+	t_PropertyGroup PropertyGroup,
+	uint32_t Index,
+	int32_t PropertyID,
 	void* PropertyValue,
 	uint32_t ValueByteSize
 ) {
@@ -183,8 +184,21 @@ int ampGetProperty(
 		return AMP_ERR_PARAM;
 
 	memset(PropertyValue, 0, ValueByteSize);
+
+	switch (PropertyGroup) {
+	case PG_DEVICE:
+		return GetDeviceProperty(PropertyID, PropertyValue, ValueByteSize);
+	case PG_MODULE:
+		return GetModuleProperty(PropertyID, PropertyValue, ValueByteSize);
+	case PG_CHANNEL:
+		return GetChannelProperty(PropertyID, PropertyValue, ValueByteSize, Index);
+	default:
+		return AMP_ERR_PARAM;
+	}
+
 	return AMP_OK;
 }
+
 /// <summary>    设置属性值 </summary>
 /// <param name="DeviceHandle">     设备句柄</param>
 /// <param name="PropertyGroup">    属性组选择</param>
@@ -195,14 +209,26 @@ int ampGetProperty(
 /// <param name="PropertyValue">    属性值缓冲区</param>
 /// <param name="ValueByteSize">    值缓冲区大小(字节)</param>
 int ampSetProperty(
-	HANDLE,
-	t_PropertyGroup,
-	uint32_t,
-	int32_t,
-	void*,
-	uint32_t
+	HANDLE DeviceHandle,
+	t_PropertyGroup PropertyGroup,
+	uint32_t Index,
+	int32_t PropertyID,
+	void* PropertyValue,
+	uint32_t ValueByteSize
 ) {
-	return AMP_OK;
+	if (!DeviceHandle || !PropertyValue || ValueByteSize == 0)
+		return AMP_ERR_PARAM;
+
+	switch (PropertyGroup) {
+	case PG_DEVICE:
+		return SetDeviceProperty(PropertyID, PropertyValue, ValueByteSize);
+	case PG_MODULE:
+		return SetModuleProperty(PropertyID, PropertyValue, ValueByteSize);
+	case PG_CHANNEL:
+		return SetChannelProperty(PropertyID, PropertyValue, ValueByteSize, Index);
+	default:
+		return AMP_ERR_PARAM;
+	}
 }
 /// <summary>    获取属性范围和范围类型 </summary>
 /// <param name="DeviceHandle">     设备句柄</param>
@@ -218,20 +244,31 @@ int ampSetProperty(
 /// <param name="ArrayByteSize">    数组缓冲区大小(字节)</param>
 /// <param name="RangeType">        属性范围类型</param>
 int ampGetPropertyRange(
-	HANDLE,
-	t_PropertyGroup,
-	uint32_t,
-	int32_t,
+	HANDLE DeviceHandle,
+	t_PropertyGroup PropertyGroup,
+	uint32_t Index,
+	int32_t PropertyID,
 	void* RangeArray,
 	uint32_t* ArrayByteSize,
 	t_PropertyRangeType* RangeType
 ) {
-	if (!RangeArray || !ArrayByteSize || !RangeType)
+	if (!PropertyID || !RangeArray || !ArrayByteSize || !RangeType)
 		return AMP_ERR_PARAM;
 
 	memset(RangeArray, 0, *ArrayByteSize);
-	return AMP_OK;
+	switch (PropertyGroup) {
+		case PG_DEVICE:
+			return GetDevicePropertyRange(PropertyID, RangeArray, ArrayByteSize, RangeType);
+		case PG_MODULE:
+			return GetModulePropertyRange(PropertyID, RangeArray, ArrayByteSize, RangeType);
+		case PG_CHANNEL:
+			return GetChannelPropertyRange(PropertyID, RangeArray, ArrayByteSize, RangeType, Index);
+		default:
+			return AMP_ERR_PARAM;
+	}
 }
+
+
 /// <summary>    启动数据采集 </summary>
 /// <param name="DeviceHandle">     设备句柄</param>
 /// <returns>    . </returns>
