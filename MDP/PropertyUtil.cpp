@@ -3,7 +3,8 @@
 t_VersionNumber apiVer = { 3, 2, 0, 0 };
 t_VersionNumber libraryVer = { 1, 22, 2, 28 };
 
-float baseSampleRate = 0.0f;
+float baseSampleRate = 125.0f;
+float subSampleDivisor = 1.0f;
 
 // 设置数值类型属性
 template <typename T>
@@ -67,25 +68,25 @@ int GetDeviceProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByt
 		case DPROP_CHR_Address:
 			return SetStr(PropertyValue, ValueByteSize, "00: 00 : 00 : 00 : 00 : 00");
 		case DPROP_CHR_SerialNumber:
-			return SetStr(PropertyValue, ValueByteSize, "Device_000");
+			return SetStr(PropertyValue, ValueByteSize, "000");
 		case DPROP_CHR_FlashWorkspaceDescription:
 		case DPROP_CHR_FlashFileName:
-			return SetStr(PropertyValue, ValueByteSize, "Default");
-			//return AMP_ERR_VERSION;
+			//return SetStr(PropertyValue, ValueByteSize, "Default");
+			return AMP_ERR_VERSION;
 
 		// 版本号类型
 		case DPROP_TVN_HardwareRevision:
 		case DPROP_TVN_FirmwareVersion:
-			//return SetVal(PropertyValue, ValueByteSize, apiVer);
-		case DPROP_TVN_DriverVersion:
 			return SetVal(PropertyValue, ValueByteSize, apiVer);
+		case DPROP_TVN_DriverVersion:
+			return SetVal(PropertyValue, ValueByteSize, libraryVer);
 
 
 		// Int32 / Bool32 类型
 		case DPROP_I32_AvailableModules:
 			return SetVal(PropertyValue, ValueByteSize, (int32_t)1);
 		case DPROP_I32_AvailableChannels:
-			return SetVal(PropertyValue, ValueByteSize, (int32_t)10);
+			return SetVal(PropertyValue, ValueByteSize, (int32_t)8);
 		case DPROP_I32_BatteryLevel:
 			//return SetVal(PropertyValue, ValueByteSize, (int32_t)BS_UNKNOWN);
 		case DPROP_I32_ConnectionState:
@@ -113,16 +114,16 @@ int GetDeviceProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByt
 		case DPROP_UI32_FlashRecordingState:
 		case DPROP_UI32_FlashFreeSpace:
 		case DPROP_UI32_FlashFileSize:
-			return SetVal(PropertyValue, ValueByteSize, (uint32_t)0);
-			//return AMP_ERR_VERSION;
+			//return SetVal(PropertyValue, ValueByteSize, (uint32_t)0);
+			return AMP_ERR_VERSION;
 
 		// Float32 类型
 		case DPROP_F32_BaseSampleRate:
-			return SetVal(PropertyValue, ValueByteSize, 125.0f);
+			return SetVal(PropertyValue, ValueByteSize, baseSampleRate);
 		case DPROP_F32_BatteryVoltage:
 		case DPROP_F32_SubSampleDivisor:
-			return SetVal(PropertyValue, ValueByteSize, 0.0f);
-			//return AMP_ERR_VERSION;
+			return SetVal(PropertyValue, ValueByteSize, subSampleDivisor);
+			return AMP_ERR_VERSION;
 
 		default:
 			return AMP_ERR_PARAM;
@@ -136,7 +137,7 @@ int GetModuleProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByt
 		case MPROP_CHR_Type:
 			return SetStr(PropertyValue, ValueByteSize, "Module_MT");
 		case MPROP_CHR_SerialNumber:
-			return SetStr(PropertyValue, ValueByteSize, "Module_000");
+			return SetStr(PropertyValue, ValueByteSize, "000");
 
 		// 版本号类型
 		case MPROP_TVN_HardwareRevision:
@@ -169,7 +170,8 @@ int GetChannelProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueBy
 		// 字符串类型
 		case CPROP_CHR_Function:
 		case CPROP_CHR_Unit:
-			return AMP_ERR_VERSION;
+			//return AMP_ERR_VERSION; //这里必须返回一个字符串类型，不能返回AMP_ERR_VERSION，好像DisplayAmpInfo在open的时候会调用这里
+			return SetStr(PropertyValue, ValueByteSize, "");
 
 		case CPROP_I32_ChannelName: 
 			return SetVal(PropertyValue, ValueByteSize, (int32_t)10);
@@ -199,8 +201,8 @@ int GetChannelProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueBy
 		case CPROP_F32_HighPass:
 		case CPROP_F32_LowPass:
 		case CPROP_F32_NotchFilter:
-			return SetVal(PropertyValue, ValueByteSize, 0.0f);
-			//return AMP_ERR_VERSION;
+			//return SetVal(PropertyValue, ValueByteSize, 0.0f);
+			return AMP_ERR_VERSION;
 
 		default:
 			return AMP_ERR_PARAM;
@@ -211,12 +213,20 @@ int GetChannelProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueBy
 int SetDeviceProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByteSize) {
 	switch (PropertyID) {
 		// 可写属性
-		case DPROP_F32_BaseSampleRate:
+		case DPROP_F32_BaseSampleRate: {
 			// TODO: 修改硬件的采样率，这里用一个全局变量表示
-			if (ValueByteSize < sizeof(float)) 
+			if (ValueByteSize < sizeof(float))
 				return AMP_ERR_PARAM;
 			memcpy(&baseSampleRate, PropertyValue, sizeof(float));
 			return AMP_OK;
+		}
+		case DPROP_F32_SubSampleDivisor: {
+			// TODO: 修改硬件的采样率，这里用一个全局变量表示
+			if (ValueByteSize < sizeof(float))
+				return AMP_ERR_PARAM;
+			memcpy(&subSampleDivisor, PropertyValue, sizeof(float));
+			return AMP_OK;
+		}
 
 		// 只读属性
 		case DPROP_CHR_Family:
@@ -238,7 +248,6 @@ int SetDeviceProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByt
 		case DPROP_I32_SignalStrength:
 		case DPROP_I32_RecordingMode:
 
-		case DPROP_F32_SubSampleDivisor:
 		case DPROP_I32_GoodImpedanceLevel:
 		case DPROP_I32_BadImpedanceLevel:
 		case DPROP_I32_LedControl:
@@ -314,7 +323,7 @@ int SetChannelProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueBy
 		case CPROP_I32_LedColor:
 		case CPROP_UI32_OutputValue:
 		case CPROP_I32_ChannelName:
-			return AMP_ERR_PARAM;
+			return AMP_ERR_VERSION;
 
 		default:
 			return AMP_ERR_PARAM;
@@ -330,6 +339,8 @@ int GetDevicePropertyRange(int32_t PropertyID, void* RangeArray, uint32_t * Arra
 		return SetRangeMinMax(RangeArray, ArrayByteSize, RangeType, (int32_t)RM_STOPPED, (int32_t)RM_TEST);
 	case DPROP_F32_BaseSampleRate:
 		return SetRangeDiscrete(RangeArray, ArrayByteSize, RangeType, std::vector<float>{125.0f, 256.0f, 512.0f});
+	case DPROP_F32_SubSampleDivisor:
+		return SetRangeDiscrete(RangeArray, ArrayByteSize, RangeType, std::vector<float>{1.0f, 2.0f});
 
 	default:
 		// 其他属性暂时默认为只读
