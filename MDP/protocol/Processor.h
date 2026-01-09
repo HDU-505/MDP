@@ -107,9 +107,6 @@ namespace protocol {
 
         // ===== 时间状态 =====
         std::chrono::steady_clock::time_point lastAppendTime; // 最近一次数据追加时间
-
-        uint64_t packetCounter = 0; // 每个 packet 的计数编码
-
     };
 
 } // namespace protocol

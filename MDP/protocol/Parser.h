@@ -37,11 +37,25 @@ namespace protocol {
 		// 解析阻抗包到 float* buffer
 		static bool parseImpedancePacketToBuffer(const unsigned char* recvData, size_t dataLen, std::vector<std::vector<float>>* buffer);
 
+        bool parseEEGPacket2Byte(
+            const uint8_t* data,
+            size_t len,
+            std::vector<uint8_t>& outBytes
+        );
+
+        bool parseEEGPacket2Float(
+            const uint8_t* data,
+            size_t len,
+            std::vector<float>& outData 
+        );
+
+
         // 获取序列号（用于构造数据包）
         uint16_t getSequenceID();
 
     private:
-        uint16_t sequenceID; // 包序列号
+        uint64_t sequenceID = 0; // 包序列号
+
     };
 
 }

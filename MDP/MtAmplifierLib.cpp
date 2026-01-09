@@ -44,7 +44,7 @@ void MtBleDeviceRecvDataCallBack(HANDLE handle, unsigned int ServiceUUID, unsign
 void MtScanedBleDeviceCallBack(const char* ID, const char* PenName, const char* PenMac, int rssi, DataSection* DataSections, int DataSectionCount)
 {
 	// 逻辑需要完善
-	if (string(PenName).find("BT50") != string::npos) {
+	if (string(PenName).find("Mindtooth") != string::npos) {
 		bleDeviceManager.addDevice(ID);
 	}
 
@@ -312,37 +312,41 @@ int ampSetDigitalPort(HANDLE DeviceHandle, int32_t PortNumber, uint32_t value) {
 /// <param name="RequestedSamples">     请求的样本数(尚未支持)</param>
 /// <returns>写入接收缓冲区的字节数</returns>
 int ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t RequestedSamples) {
+	if (!Buffer || BufferSize <= 0 || RequestedSamples <= 0) {
+		return IF_ERR_PARAMETER;
+	}
+
 	int sampleLen = protocolManager.getSampleLength();
+	if (sampleLen <= 0) {
+		return IF_ERR_PARAMETER;
+	}
+
+	// Buffer 最多能容纳多少个 sample
 	int maxSampleCount = BufferSize / sampleLen;
 	if (maxSampleCount <= 0) {
 		return IF_ERR_PARAMETER;
 	}
 
-	// 获取数据
-	std::vector<std::vector<uint8_t>> data = protocolManager.getEEGData(maxSampleCount);
+	// 实际请求的 sample 数
+	int requestCount = min(RequestedSamples, maxSampleCount);
 
-	// 写入缓冲区
-	uint8_t* buf = static_cast<uint8_t*>(Buffer);
-	size_t offset = 0;
+	// 从协议层获取数据（一维 byte buffer）
+	vector<uint8_t> data = protocolManager.getEEGData(requestCount);
 
-	for (size_t i = 0; i < data.size(); i++) {
-		if (data[i].size() != sampleLen) {
-			// 安全检查，防止长度不一致
-			return IF_ERR_PARAMETER;
-		}
-
-		if (offset + sampleLen > static_cast<size_t>(BufferSize)) {
-			// 缓冲区空间不足
-			break;
-		}
-
-		// 直接 memcpy 一行 Sample
-		std::memcpy(buf + offset, data[i].data(), sampleLen);
-		offset += sampleLen;
+	// 实际获取到的 sample 数
+	int actualSamples = static_cast<int>(data.size() / sampleLen);
+	if (actualSamples <= 0) {
+		return 0;  // 没数据不是错误
 	}
 
-	// 返回实际写入的 Sample 数量
-	return static_cast<int>(offset / sampleLen);
+	// 实际需要拷贝的字节数
+	size_t bytesToCopy = static_cast<size_t>(actualSamples) * sampleLen;
+
+	// 拷贝到用户 Buffer
+	memcpy(Buffer, data.data(), bytesToCopy);
+
+	// 返回：实际写入的 sample 数
+	return data.size();
 }
 
 
@@ -357,7 +361,14 @@ int ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t Re
 /// <param name="BufferSize">       接收缓冲区大小(字节)</param>
 /// <returns>写入接收缓冲区的字节数</returns>
 int ampGetImpedanceData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize) {
-	return AMP_OK;
+	if (!Buffer || BufferSize <= 0) {
+		return IF_ERR_PARAMETER;
+	}
+	vector<float> impedances = protocolManager.getImpedanceData(125);
+
+	memcpy(Buffer, impedances.data(), BufferSize);
+
+	return 1;
 }
 
 /// <summary>    开始记录到内部内存 </summary>

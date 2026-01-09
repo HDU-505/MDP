@@ -142,6 +142,99 @@ namespace protocol {
         return sequenceID;
     }
 
+    bool Parser::parseEEGPacket2Byte(
+        const uint8_t* data,
+        size_t len,
+        std::vector<uint8_t>& outBytes
+    )
+    {
+        if (!data || len < HEADER_LENGTH + EEG_PAYLOAD_SIZE) {
+            return false;
+        }
+
+        size_t payloadStart = HEADER_LENGTH;
+
+        /* ---------- 1. 解析 8B 计数器 ---------- */
+        sequenceID++;
+
+        // 写入 counter（大端）
+        for (int i = 0; i < 8; i++) {
+            outBytes.push_back(
+                static_cast<uint8_t>((sequenceID >> (i * 8)) & 0xFF)
+            );
+        }
+
+        size_t eegStart = payloadStart + 8;
+
+        /* ---------- 2. 解析 EEG 通道 ---------- */
+        for (int ch = 0; ch < EEG_CHANNEL_COUNT; ++ch) {
+            size_t offset = eegStart + ch * EEG_CHANNEL_BYTES;
+
+            uint32_t raw =
+                (static_cast<uint32_t>(data[offset]) << 16) |
+                (static_cast<uint32_t>(data[offset + 1]) << 8) |
+                static_cast<uint32_t>(data[offset + 2]);
+
+            // 24-bit 符号扩展
+            if (raw & 0x800000) raw |= 0xFF000000;
+            int32_t signedVal = static_cast<int32_t>(raw);
+
+            float value = static_cast<float>(signedVal);
+            value *= (2.0f * 4.5f / 16777215.0f);
+            value *= (1000000.0f / 24.0f);
+
+            // float → byte
+            const uint8_t* p = reinterpret_cast<const uint8_t*>(&value);
+            outBytes.insert(outBytes.end(), p, p + sizeof(float));
+        }
+
+        return true;
+    }
+
+
+    bool Parser::parseEEGPacket2Float(
+        const uint8_t* data,
+        size_t len,
+        std::vector<float>& outData // 修改：这里改为 float 的 vector
+    )
+    {
+        // 检查数据长度是否足够
+        if (!data || len < HEADER_LENGTH + EEG_PAYLOAD_SIZE) {
+            return false;
+        }
+
+        size_t payloadStart = HEADER_LENGTH;
+
+        size_t eegStart = payloadStart + 8; // 保持原偏移逻辑（假设协议中这里确实跳过了8字节）
+
+        /* ---------- 2. 解析 EEG 通道并存为 float ---------- */
+        for (int ch = 0; ch < EEG_CHANNEL_COUNT; ++ch) {
+            size_t offset = eegStart + ch * EEG_CHANNEL_BYTES;
+
+            // 保持原有的 24-bit 大端解析逻辑
+            uint32_t raw =
+                (static_cast<uint32_t>(data[offset]) << 16) |
+                (static_cast<uint32_t>(data[offset + 1]) << 8) |
+                static_cast<uint32_t>(data[offset + 2]);
+
+            // 24-bit 符号扩展
+            if (raw & 0x800000) raw |= 0xFF000000;
+            int32_t signedVal = static_cast<int32_t>(raw);
+
+            // 转换为电压值
+            float value = static_cast<float>(signedVal);
+            value *= (2.0f * 4.5f / 16777215.0f); // 缩放因子
+            value *= (1000000.0f / 24.0f);        // 增益调整
+
+            // 修改：直接存入 float 值，不需要转回 byte
+            outData.push_back(value);
+        }
+
+        return true;
+    }
+
+
+
     // Parse EEG Packet
     bool Parser::parseEEGPacketToBuffer(
         const unsigned char* recvData, size_t dataLen, vector<vector<float>>* buffer)
@@ -149,7 +242,7 @@ namespace protocol {
         if (recvData == nullptr || buffer == nullptr) return false;
 
         // Header (4) + Seq(2) + Len(2) = 8 bytes overhead
-        size_t payloadStart = 8;
+        size_t payloadStart = 6;
         
         if (dataLen < payloadStart + EEG_PAYLOAD_SIZE) return false;
 

@@ -72,7 +72,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <TargetName>BVBLELib</TargetName>
-    <OutDir>E:\GitHub\WorkSpace\MDP-feat-protocal-szf\MDP\x64\Debug</OutDir>
+    <OutDir>D:\Desktop\code\MT08\MDP\x64\Debug</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -149,6 +149,7 @@
     <ClInclude Include="BleDeviceManager.h" />
     <ClInclude Include="bt\BLEComm.h" />
     <ClInclude Include="bt\BleHandle.h" />
+    <ClInclude Include="ImpedanceUtil.h" />
     <ClInclude Include="PropertyUtil.h" />
     <ClInclude Include="ProtocolManager.h" />
     <ClInclude Include="protocol\Processor.h" />
@@ -162,6 +163,7 @@
     <ClCompile Include="bt\BLEComm.cpp" />
     <ClCompile Include="bt\BleHandle.cpp" />
     <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="ImpedanceUtil.cpp" />
     <ClCompile Include="MtAmplifierLib.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

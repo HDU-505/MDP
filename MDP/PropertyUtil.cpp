@@ -5,6 +5,7 @@ t_VersionNumber libraryVer = { 1, 22, 2, 28 };
 
 float baseSampleRate = 125.0f;
 float subSampleDivisor = 1.0f;
+t_RecordingMode recordingMode = RM_STOPPED;
 
 // 设置数值类型属性
 template <typename T>
@@ -95,7 +96,7 @@ int GetDeviceProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByt
 			//return SetVal(PropertyValue, ValueByteSize, (int32_t)SQ_NOINFO);
 		case DPROP_I32_RecordingState:
 		case DPROP_I32_RecordingMode:
-			//return SetVal(PropertyValue, ValueByteSize, (int32_t)RM_STOPPED);
+			return SetVal(PropertyValue, ValueByteSize, (int32_t)recordingMode);
 		case DPROP_I32_SignalStrength:
 		case DPROP_I32_GoodImpedanceLevel:
 		case DPROP_I32_BadImpedanceLevel:
@@ -185,11 +186,12 @@ int GetChannelProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueBy
 			return SetVal(PropertyValue, ValueByteSize, (int32_t)0);
 		case CPROP_I32_Electrode:
 		case CPROP_I32_DataType:
+			return SetVal(PropertyValue, ValueByteSize,(int32_t)6);
 		case CPROP_I32_LedColor:
 		case CPROP_B32_ReferenceChannel:
 		case CPROP_B32_ImpedanceMeasurement:
 		case CPROP_B32_RecordingEnabled:
-			return SetVal(PropertyValue, ValueByteSize, (int32_t)0);
+			return SetVal(PropertyValue, ValueByteSize, (int32_t)1);
 
 		// UInt32 类型
 		case CPROP_UI32_OutputValue:
@@ -197,6 +199,7 @@ int GetChannelProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueBy
 
 		// Float32 类型
 		case CPROP_F32_Resolution:
+			return SetVal(PropertyValue, ValueByteSize, (float)1);
 		case CPROP_F32_Gain:
 		case CPROP_F32_HighPass:
 		case CPROP_F32_LowPass:
@@ -227,6 +230,10 @@ int SetDeviceProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByt
 			memcpy(&subSampleDivisor, PropertyValue, sizeof(float));
 			return AMP_OK;
 		}
+		case DPROP_I32_RecordingMode: {
+			memcpy(&recordingMode, PropertyValue, sizeof(int));
+			return AMP_OK;
+		}
 
 		// 只读属性
 		case DPROP_CHR_Family:
@@ -246,7 +253,7 @@ int SetDeviceProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByt
 		case DPROP_UI32_ErrorFlags:
 		case DPROP_I32_RecordingState:
 		case DPROP_I32_SignalStrength:
-		case DPROP_I32_RecordingMode:
+		
 
 		case DPROP_I32_GoodImpedanceLevel:
 		case DPROP_I32_BadImpedanceLevel:

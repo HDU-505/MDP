@@ -5,12 +5,16 @@
 #include "Amplifier_LIB.h"
 #include "bt/BleHandle.h"
 #include "bt/BLEComm.h"
+#include "ImpedanceUtil.h"
 
 namespace protocol {
 	class ProtocolManager {
 	private:
 		Processor* processor;
 		Parser* parser;
+		ImpedanceUtil* impedanceUtil;
+
+
 	public:
 		ProtocolManager(RecordingMode recordingMode);
 
@@ -18,7 +22,9 @@ namespace protocol {
 
 		vector<uint8_t> buildPacket(ComandType comandType,PacketType packType, StreamMask streamMask);
 
-		std::vector<std::vector<uint8_t>> getEEGData(int sampleLen);
+		std::vector<uint8_t> getEEGData(int sampleLen);
+
+		std::vector<float> getImpedanceData(int sampleLen);
 
 		int getSampleLength();
 

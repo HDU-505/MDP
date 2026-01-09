@@ -36,29 +36,9 @@ namespace protocol {
     Processor::waitAndExtractPackets(size_t maxPackets) {
         std::unique_lock<std::mutex> lock(mtx);
 
-        bool ready = cv.wait_for(
-            lock,
-            std::chrono::milliseconds(timeoutMs),
-            [this] {
-                size_t idx = findPacketStart(readPos);
-
-                // 至少需要 8 字节才能解析到 payload length
-                if (idx == SIZE_MAX || idx + 8 > buffer.size()) {
-                    return false;
-                }
-
-                uint8_t lenH = buffer[idx + IDX_PAYLOAD_LEN_H];
-                uint8_t lenL = buffer[idx + IDX_PAYLOAD_LEN_L];
-                uint16_t payloadLen =
-                    (static_cast<uint16_t>(lenH) << 8) | lenL;
-
-                // 完整包长度 = 固定头 8 字节 + payload
-                return (idx + 8 + payloadLen) <= buffer.size();
+        cv.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this] {
+            return 0;
             });
-
-        if (!ready) {
-            return {};
-        }
 
         return extractPacketsLocked(maxPackets);
     }
@@ -70,57 +50,39 @@ namespace protocol {
     }
 
     std::vector<std::vector<uint8_t>>
-        Processor::extractPacketsLocked(size_t maxPackets) {
+        Processor::extractPacketsLocked(size_t maxPackets)
+    {
         std::vector<std::vector<uint8_t>> packets;
         packets.reserve(maxPackets);
 
-        size_t count = 0;
-
-        while (count < maxPackets) {
-            size_t idx = findPacketStart(readPos);
-
-            if (idx == SIZE_MAX || idx + 8 > buffer.size()) {
-                break;
-            }
-
-            uint8_t lenH = buffer[idx + IDX_PAYLOAD_LEN_H];
-            uint8_t lenL = buffer[idx + IDX_PAYLOAD_LEN_L];
-            uint16_t payloadLen =
-                (static_cast<uint16_t>(lenH) << 8) | lenL;
-
-            size_t totalPacketLen = 8 + payloadLen;
-
-            if (idx + totalPacketLen > buffer.size()) {
-                break;
-            }
-
-            // 拷贝原始 packet
-            std::vector<uint8_t> pkt(buffer.begin() + idx,
-                buffer.begin() + idx + totalPacketLen);
-
-            // 在 payload 前插入计数编码（8 字节 little-endian）
-            uint64_t counter = packetCounter++;
-            uint8_t counterBytes[8];
-            for (int i = 0; i < 8; ++i) {
-                counterBytes[i] = static_cast<uint8_t>((counter >> (8 * i)) & 0xFF);
-            }
-
-            // 将计数编码插入到 packet 开头或者特定位置
-            pkt.insert(pkt.begin() + 8, counterBytes, counterBytes + 8);
-            // 注意：插入后 totalPacketLen 需要上层处理适配
-
-            packets.emplace_back(std::move(pkt));
-
-            readPos = idx + totalPacketLen;
-            ++count;
+        size_t idx = findPacketStart(readPos);
+        if (idx == SIZE_MAX || idx + HEADER_LENGTH > buffer.size()) {
+            return packets;
         }
+        // TODO 需要动态根据协议调整解析包长度
+        size_t samplePacketLen = 30;
+        if (idx + samplePacketLen > buffer.size()) {
+            return packets;
+        }
+        size_t noProcessedBufferLen = std::distance(buffer.begin() + idx, buffer.end());
+        size_t noProcessedSampleLen = noProcessedBufferLen / samplePacketLen;
+        size_t maxSampleCount = std::min(noProcessedSampleLen, maxPackets);
+        size_t maxTotalPacketLen = maxSampleCount * samplePacketLen;
+
+        // 拷贝原始 packet 
+        for (size_t i = 0; i < maxSampleCount; i++) {
+            std::vector<uint8_t> pkt(buffer.begin() + idx, buffer.begin() + idx + samplePacketLen);
+            packets.push_back(std::move(pkt));
+        }
+        buffer.erase(buffer.begin(), buffer.begin() + idx + maxTotalPacketLen);
 
         compactIfNeeded();
         return packets;
     }
 
 
-    size_t Processor::findPacketStart(size_t from) const {
+    size_t Processor::findPacketStart(size_t from) const
+    {
         if (buffer.size() < 2 || from >= buffer.size()) {
             return SIZE_MAX;
         }
