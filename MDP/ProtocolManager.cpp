@@ -73,6 +73,7 @@ std::vector<float> protocol::ProtocolManager::getImpedanceData(int sampleLen)
     for (const std::vector<float>& channelRow : eegData) {
         std::vector<float> impedance = impedanceUtil->ImpedanceCalculation(channelRow);
         result.push_back(impedance[impedance.size() - 1]);
+        result.push_back(-1.0f);
     }
 
     return result;
