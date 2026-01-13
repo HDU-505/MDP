@@ -61,15 +61,15 @@ int GetDeviceProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByt
 	switch (PropertyID) {
 		// ×Ö·û´®ÀàÐÍ
 		case DPROP_CHR_Family:
-			return SetStr(PropertyValue, ValueByteSize, "MindTooth");
+			return SetVal(PropertyValue, ValueByteSize, "0");
 		case DPROP_CHR_Type:
-			return SetStr(PropertyValue, ValueByteSize, "Device_MT");
+			return SetStr(PropertyValue, ValueByteSize, "Mindtooth");
 		case DPROP_CHR_Interface:
 			return SetStr(PropertyValue, ValueByteSize, "BT");
 		case DPROP_CHR_Address:
 			return SetStr(PropertyValue, ValueByteSize, "00: 00 : 00 : 00 : 00 : 00");
 		case DPROP_CHR_SerialNumber:
-			return SetStr(PropertyValue, ValueByteSize, "000");
+			return SetStr(PropertyValue, ValueByteSize, "00001");
 		case DPROP_CHR_FlashWorkspaceDescription:
 		case DPROP_CHR_FlashFileName:
 			//return SetStr(PropertyValue, ValueByteSize, "Default");

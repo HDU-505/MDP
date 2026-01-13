@@ -7,3 +7,7 @@ Test/x64/
 *.vcxproj
 *.filters
 *.vcxproj.user
+
+MDP/MDP.vcxproj
+MDP/*.filters
+MDP/*.vcxproj.user

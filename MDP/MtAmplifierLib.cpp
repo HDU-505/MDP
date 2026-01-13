@@ -47,10 +47,6 @@ void MtScanedBleDeviceCallBack(const char* ID, const char* PenName, const char* 
 	if (string(PenName).find("Mindtooth") != string::npos) {
 		bleDeviceManager.addDevice(ID);
 	}
-
-	if (DataSectionCount < 0) {
-		cout << "  No data sections found." << endl;
-	}
 }
 
 void MtScanFinishBack()
@@ -154,6 +150,7 @@ int ampGetDeviceAddress(int32_t DeviceNr, char* DeviceAddress, int32_t BufferSiz
 /// <param name="DeviceHandle">     返回设备句柄</param>
 /// <returns>    . </returns>
 int ampOpenDevice(int32_t DeviceNr, HANDLE* DeviceHandle) {
+
 	HANDLE handle = bleDeviceManager.openDevice(DeviceNr);
 	if (!handle) {
 		return AMP_ERR_NODEVICE;
@@ -180,14 +177,14 @@ int ampGetProperty(
 	void* PropertyValue,
 	uint32_t ValueByteSize
 ) {
+
 	if (!DeviceHandle || !PropertyValue || ValueByteSize == 0)
 		return AMP_ERR_PARAM;
 
 	memset(PropertyValue, 0, ValueByteSize);
-
 	switch (PropertyGroup) {
 	case PG_DEVICE:
-		return GetDeviceProperty(PropertyID, PropertyValue, ValueByteSize);
+		return GetDeviceProperty(PropertyID, PropertyValue, ValueByteSize); 
 	case PG_MODULE:
 		return GetModuleProperty(PropertyID, PropertyValue, ValueByteSize);
 	case PG_CHANNEL:
@@ -195,7 +192,6 @@ int ampGetProperty(
 	default:
 		return AMP_ERR_PARAM;
 	}
-
 	return AMP_OK;
 }
 
@@ -312,6 +308,7 @@ int ampSetDigitalPort(HANDLE DeviceHandle, int32_t PortNumber, uint32_t value) {
 /// <param name="RequestedSamples">     请求的样本数(尚未支持)</param>
 /// <returns>写入接收缓冲区的字节数</returns>
 int ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t RequestedSamples) {
+
 	if (!Buffer || BufferSize <= 0 || RequestedSamples <= 0) {
 		return IF_ERR_PARAMETER;
 	}
@@ -361,6 +358,7 @@ int ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t Re
 /// <param name="BufferSize">       接收缓冲区大小(字节)</param>
 /// <returns>写入接收缓冲区的字节数</returns>
 int ampGetImpedanceData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize) {
+
 	if (!Buffer || BufferSize <= 0) {
 		return IF_ERR_PARAMETER;
 	}
