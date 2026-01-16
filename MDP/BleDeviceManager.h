@@ -33,6 +33,9 @@ public:
 	std::condition_variable connCv;
 	bool isConnected;
 
+	t_RecordingMode recordingMode = RM_STOPPED;
+
+
 public:
 	BleDeviceManager(protocol::ProtocolManager* protocolManager);
 

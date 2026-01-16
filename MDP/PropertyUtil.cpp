@@ -5,7 +5,8 @@ t_VersionNumber libraryVer = { 1, 22, 2, 28 };
 
 float baseSampleRate = 125.0f;
 float subSampleDivisor = 1.0f;
-t_RecordingMode recordingMode = RM_STOPPED;
+
+BleDeviceManager* device;
 
 // 设置数值类型属性
 template <typename T>
@@ -96,7 +97,7 @@ int GetDeviceProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByt
 			//return SetVal(PropertyValue, ValueByteSize, (int32_t)SQ_NOINFO);
 		case DPROP_I32_RecordingState:
 		case DPROP_I32_RecordingMode:
-			return SetVal(PropertyValue, ValueByteSize, (int32_t)recordingMode);
+			return SetVal(PropertyValue, ValueByteSize, (int32_t)device->recordingMode);
 		case DPROP_I32_SignalStrength:
 		case DPROP_I32_GoodImpedanceLevel:
 		case DPROP_I32_BadImpedanceLevel:
@@ -231,7 +232,10 @@ int SetDeviceProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByt
 			return AMP_OK;
 		}
 		case DPROP_I32_RecordingMode: {
-			memcpy(&recordingMode, PropertyValue, sizeof(int));
+
+			memcpy(&device->recordingMode, PropertyValue, sizeof(int));
+			// 往硬件发送指令
+
 			return AMP_OK;
 		}
 
@@ -386,4 +390,10 @@ int GetChannelPropertyRange(int32_t PropertyID, void* RangeArray, uint32_t * Arr
 	default:
 		return AMP_OK;
 	}
+}
+
+bool SetBleDeviceManager(BleDeviceManager* bleDevice)
+{
+	device = bleDevice;
+	return true;
 }

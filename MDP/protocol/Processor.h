@@ -19,13 +19,17 @@ namespace protocol {
      * 设计边界：
      *  - 仅负责协议层的数据拼包与拆包
      *  - 不涉及具体业务语义或数据处理逻辑
+     *
+     * 新协议说明：
+     *  - 包格式：0x02 0x10 (头标记) + 16位时间戳 + 16位序号 + 24位×8(ADC数据) + 0xAE 0x12 (尾标记)
+     *  - 总长度：32字节
      */
     class Processor {
     public:
         /**
          * @brief 构造协议解析器
          *
-         * @param packetLen  单个协议数据包的固定总长度（字节）
+         * @param packetLen  单个协议数据包的固定总长度（字节），新协议为32字节
          * @param timeoutMs  数据等待超时时间（毫秒），用于阻塞等待场景
          */
         Processor(size_t packetLen, int timeoutMs);
@@ -79,6 +83,8 @@ namespace protocol {
         /**
          * @brief 从指定位置开始查找下一个合法的数据包头
          *
+         * 新协议中查找 0x02 0x10 头标记
+         *
          * @param from  起始搜索位置
          * @return      包头起始索引；若未找到则返回 SIZE_MAX
          */
@@ -94,7 +100,7 @@ namespace protocol {
 
     private:
         // ===== 配置参数 =====
-        size_t fixedPacketLength;  // 协议数据包固定长度
+        size_t fixedPacketLength;  // 协议数据包固定长度（新协议为32字节）
         int    timeoutMs;          // 阻塞等待超时时间（ms）
 
         // ===== 数据缓冲区 =====

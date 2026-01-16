@@ -156,7 +156,7 @@ int ampOpenDevice(int32_t DeviceNr, HANDLE* DeviceHandle) {
 		return AMP_ERR_NODEVICE;
 	}
 	*DeviceHandle = handle;
-
+	SetBleDeviceManager(&bleDeviceManager);
 	return AMP_OK;
 }
 

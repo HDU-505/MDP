@@ -9,6 +9,41 @@ namespace protocol {
         COMAND_STREAM = 0x03
     };
 
+    // ================= 新协议包结构索引定义 =================
+    enum NewHeaderIndex : uint8_t {
+        IDX_HEAD_MARKER_H = 0,      // 头标记高字节 0x02
+        IDX_HEAD_MARKER_L = 1,      // 头标记低字节 0x10
+        IDX_TIMESTAMP_H = 2,        // 时间戳高字节
+        IDX_TIMESTAMP_L = 3,        // 时间戳低字节
+        IDX_SAMPLE_SEQ_H = 4,       // 采样序号高字节
+        IDX_SAMPLE_SEQ_L = 5,       // 采样序号低字节
+        IDX_ADC_DATA_START = 10,     // ADC数据起始位置
+    };
+
+    // ================= 新协议同步标记定义 =================
+    // 头标记（2字节）
+    constexpr uint16_t HEAD_MARKER = 0x0210;
+    constexpr uint8_t HEAD_MARKER_H = 0x02;
+    constexpr uint8_t HEAD_MARKER_L = 0x10;
+
+    // 尾标记（2字节）
+    constexpr uint16_t TAIL_MARKER = 0xAE12;
+    constexpr uint8_t TAIL_MARKER_H = 0xAE;
+    constexpr uint8_t TAIL_MARKER_L = 0x12;
+
+    // 新协议包头字节序列
+    constexpr uint8_t NEW_PACKET_HEADER[2] = {
+        HEAD_MARKER_H,
+        HEAD_MARKER_L
+    };
+
+    // 新协议包尾字节序列
+    constexpr uint8_t NEW_PACKET_TAIL[2] = {
+        TAIL_MARKER_H,
+        TAIL_MARKER_L
+    };
+
+    // ================= 旧协议兼容定义（保留用于控制指令）=================
     enum HeaderIndex : uint8_t {
         IDX_SYNC_HEADER_H = 0,
         IDX_SYNC_HEADER_L,
@@ -24,19 +59,12 @@ namespace protocol {
 
     };
 
-    // ================= 同步头定义 =================
-    // 数据包同步字（2 字节），用于帧起始定位
+    // 旧协议同步头定义（用于控制指令）
     constexpr uint16_t SYNC_HEADER = 0xAE12;
-
-    // 同步头高字节
     constexpr uint8_t SYNC_HEADER_H =
         static_cast<uint8_t>((SYNC_HEADER >> 8) & 0xFF);
-
-    // 同步头低字节
     constexpr uint8_t SYNC_HEADER_L =
         static_cast<uint8_t>(SYNC_HEADER & 0xFF);
-
-    // 同步头字节序列（用于流中查找帧头）
     constexpr uint8_t PACKET_HEADER[2] = {
         SYNC_HEADER_H,
         SYNC_HEADER_L
@@ -56,12 +84,21 @@ namespace protocol {
     // 单个 EEG 通道数据字节数（24-bit）
     constexpr uint8_t  EEG_CHANNEL_BYTES = 3;
 
-    // 接触质量 / 电极状态字节数
-    constexpr uint8_t  EEG_CONTACT_BYTES = 1;
+    // 接触质量 / 电极状态字节数（新协议中可能不需要）
+    constexpr uint8_t  EEG_CONTACT_BYTES = 0;
 
-    // EEG 数据 payload 总长度（单位：字节）
+    // ================= 新协议包长度定义 =================
+    // 头标记(2) + 时间戳(4) + 序号(4) + ADC数据(24) + 尾标记(2) = 32字节
+    constexpr size_t NEW_PACKET_HEADER_SIZE = 10;  // 头标记 + 时间戳 + 序号
+    constexpr size_t NEW_PACKET_ADC_SIZE = EEG_CHANNEL_COUNT * EEG_CHANNEL_BYTES;  // 24字节
+    constexpr size_t NEW_PACKET_TAIL_SIZE = 2;    // 尾标记
+    constexpr size_t NEW_PACKET_TOTAL_SIZE = NEW_PACKET_HEADER_SIZE +
+        NEW_PACKET_ADC_SIZE +
+        NEW_PACKET_TAIL_SIZE;  // 32字节
+
+    // EEG 数据 payload 总长度（旧协议兼容）
     constexpr uint8_t  EEG_PAYLOAD_SIZE =
-        EEG_CHANNEL_COUNT * EEG_CHANNEL_BYTES + EEG_CONTACT_BYTES;  // 25 bytes
+        EEG_CHANNEL_COUNT * EEG_CHANNEL_BYTES + EEG_CONTACT_BYTES;
 
     // ================= 阻抗数据相关定义 =================
     // 阻抗测量通道数量
@@ -92,11 +129,10 @@ namespace protocol {
         PKT_ENTER_DFU = 0x04, // 进入固件升级模式
 
         // ---- 数据采集相关（0x10 ~ 0x1F）----
-        PKT_EEG_DATA_PUSH = 0x10, // EEG 实时数据推送
+        PKT_EEG_DATA_PUSH = 0x10, // EEG 实时数据推送（新协议格式）
         PKT_IMPEDANCE_DATA_PUSH = 0x11, // 阻抗数据推送
-        PKT_GET_SINGLE_FRAME = 0x12, // 请求单帧数据
-        PKT_STOP_STREAM = 0x13, // 停止数据流
-        PKT_GET_IMPEDANCE = 0x14, // 请求阻抗测量
+        PKT_STOP_STREAM = 0x12, // 停止数据流
+        PKT_GET_IMPEDANCE = 0x13, // 请求阻抗测量
 
         // ---- 配置与查询指令（0x20 ~ 0x2F）----
         PKT_SET_SAMPLERATE = 0x20, // 设置采样率
@@ -136,8 +172,6 @@ namespace protocol {
     // ================= 缓冲区管理参数 =================
     // 超过该阈值时建议执行 buffer 压缩或重整
     constexpr size_t COMPACT_THRESHOLD = 2048;
-
-    // ================= 协议头字段索引 =================
 
     // ================= 模块 ID 范围 =================
     // 合法的模块编号区间（用于多模块设备扩展）

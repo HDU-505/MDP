@@ -1,6 +1,8 @@
 #pragma once
 # include "Amplifier_LIB.h"
 # include <vector>
+# include "BleDeviceManager.h"
+
 
 // 获取设备属性
 int GetDeviceProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByteSize);
@@ -22,3 +24,5 @@ int GetDevicePropertyRange(int32_t PropertyID, void* RangeArray, uint32_t* Array
 int GetModulePropertyRange(int32_t PropertyID, void* RangeArray, uint32_t* ArrayByteSize, t_PropertyRangeType* RangeType);
 // 获取通道属性范围
 int GetChannelPropertyRange(int32_t PropertyID, void* RangeArray, uint32_t* ArrayByteSize, t_PropertyRangeType* RangeType, uint32_t Index);
+
+bool SetBleDeviceManager(BleDeviceManager* bleDevice);

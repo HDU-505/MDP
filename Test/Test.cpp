@@ -624,7 +624,6 @@ int SelectAmpFamily()
 		"\t0: LiveAmp   \n" <<
 		"\t1: actiCHamp \n " <<
 		"\t2: BleAmplifier \n>> ";
-
 	int nFamily;
 	cin >> nFamily;
 

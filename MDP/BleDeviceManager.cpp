@@ -95,15 +95,28 @@ HANDLE BleDeviceManager::openDevice(int32_t DeviceNr)
 
 bool BleDeviceManager::startAcquisition(HANDLE DeviceHandle)
 {
-    vector<uint8_t> startComand = protocolManager->buildPacket(protocol::COMAND_STREAM, protocol::PKT_EEG_DATA_PUSH, protocol::STREAM_EEG);
-    if (WriteDateByCharcteristic(DeviceHandle,
-        write_ServiceUUID,
-        write_CharacteristicUUID,
-        startComand.data(),
-        startComand.size())) {
-        return true;
+    if (recordingMode == RM_NORMAL) {
+        vector<uint8_t> startComand = protocolManager->buildPacket(protocol::COMAND_STREAM, protocol::PKT_EEG_DATA_PUSH, protocol::STREAM_EEG);
+        if (WriteDateByCharcteristic(DeviceHandle,
+            write_ServiceUUID,
+            write_CharacteristicUUID,
+            startComand.data(),
+            startComand.size())) {
+            return true;
+        }
+        return false;
     }
-    return false;
+    else if (recordingMode == RM_IMPEDANCE) {
+        vector<uint8_t> startComand = protocolManager->buildPacket(protocol::COMAND_STREAM, protocol::PKT_IMPEDANCE_DATA_PUSH, protocol::STREAM_EEG);
+        if (WriteDateByCharcteristic(DeviceHandle,
+            write_ServiceUUID,
+            write_CharacteristicUUID,
+            startComand.data(),
+            startComand.size())) {
+            return true;
+        }
+        return false;
+    }
 }
 
 bool BleDeviceManager::stopAcquisition(HANDLE DeviceHandle)
