@@ -1,0 +1,126 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="头文件\bt">
+      <UniqueIdentifier>{89eed495-06ed-454d-8ecd-acb65e3072f6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\bt">
+      <UniqueIdentifier>{cc3b3afb-09ce-47d3-b8a6-154c70f2dcf0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\protocol">
+      <UniqueIdentifier>{6dbd38a8-f3cb-4dc8-b925-685889293193}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\protocol">
+      <UniqueIdentifier>{f313ebde-f078-489c-8c53-c19060951e79}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Amplifier_LIB.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="bt\BLEComm.h">
+      <Filter>头文件\bt</Filter>
+    </ClInclude>
+    <ClInclude Include="bt\BleHandle.h">
+      <Filter>头文件\bt</Filter>
+    </ClInclude>
+    <ClInclude Include="protocol\Constants.h">
+      <Filter>头文件\protocol</Filter>
+    </ClInclude>
+    <ClInclude Include="protocol\Parser.h">
+      <Filter>头文件\protocol</Filter>
+    </ClInclude>
+    <ClInclude Include="Version.h">
+      <Filter>头文件\protocol</Filter>
+    </ClInclude>
+    <ClInclude Include="PropertyUtil.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ImpedanceUtil.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="protocol\DualModeBuffer.h">
+      <Filter>头文件\protocol</Filter>
+    </ClInclude>
+    <ClInclude Include="protocol\RingBuffer.h">
+      <Filter>头文件\protocol</Filter>
+    </ClInclude>
+    <ClInclude Include="bt\BleDeviceManager.h">
+      <Filter>头文件\bt</Filter>
+    </ClInclude>
+    <ClInclude Include="protocol\ProtocolManager.h">
+      <Filter>头文件\protocol</Filter>
+    </ClInclude>
+    <ClInclude Include="ErrorHandler.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="HardwareConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="RealTimeImpedanceCalculator.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="protocol\Processor.h">
+      <Filter>头文件\protocol</Filter>
+    </ClInclude>
+    <ClInclude Include="bt\BleDeviceCache.h">
+      <Filter>头文件\bt</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="dllmain.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="pch.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MtAmplifierLib.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="bt\BLEComm.cpp">
+      <Filter>源文件\bt</Filter>
+    </ClCompile>
+    <ClCompile Include="bt\BleHandle.cpp">
+      <Filter>源文件\bt</Filter>
+    </ClCompile>
+    <ClCompile Include="protocol\ProtocolParser.cpp">
+      <Filter>源文件\protocol</Filter>
+    </ClCompile>
+    <ClCompile Include="PropertyUtil.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ImpedanceUtil.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="bt\BleDeviceManager.cpp">
+      <Filter>源文件\bt</Filter>
+    </ClCompile>
+    <ClCompile Include="protocol\ProtocolManager.cpp">
+      <Filter>源文件\protocol</Filter>
+    </ClCompile>
+    <ClCompile Include="HardwareConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="protocol\Processor.cpp">
+      <Filter>源文件\protocol</Filter>
+    </ClCompile>
+    <ClCompile Include="ErrorHandler.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

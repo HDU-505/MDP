@@ -1,0 +1,214 @@
+#include "BLEComm.h"
+#include "BleHandle.h"
+#include <map>
+#include <string>
+using namespace std;
+
+map<uint64_t, int>BleDevices;
+
+BluetoothLEAdvertisementWatcher m_btWatcher;
+
+LPWSTR ConvertCharToLPWSTR(char* szString, WCHAR* addrchar)
+{
+	int dwLen = strlen(szString) + 1;
+	int nwLen = MultiByteToWideChar(CP_ACP, 0, szString, dwLen, NULL, 0);//算出合适的长度
+	MultiByteToWideChar(CP_ACP, 0, szString, dwLen, addrchar, nwLen);
+	return addrchar;
+}
+
+
+unsigned char* ConvertLPWSTRToChar(LPCTSTR widestr, unsigned char* addrchar)
+{
+	int num = WideCharToMultiByte(CP_OEMCP, NULL, widestr, -1, NULL, 0, NULL, FALSE);
+	WideCharToMultiByte(CP_OEMCP, NULL, widestr, -1, (char*)addrchar, num, NULL, FALSE);
+	return addrchar;
+}
+
+
+
+void RegisterRecvBleDevice(ScanedBleDeviceCallBack CallBack)
+{
+	OnScanedBleDeviceCallBack = CallBack;
+}
+
+
+void RegisterSacnBleDeviceFinish(SacnBleDeviceFinishCallBack CallBack)
+{
+	OnSacnFinishCallBack = CallBack;
+}
+
+void RegisterConnectionBleDeviceStatus(ConnectionBleDeviceStatusCallBack CallBack)
+{
+	OnConnectionStatusCallBack = CallBack;
+}
+
+void RegisterBleDeviceRecvData(BleDeviceRecvDataCallBack CallBack)
+{
+	OnRecvDataCallBack = CallBack;
+}
+
+
+
+
+bool BLEIsLowEnergySupported() {
+
+	auto getadapter_op = Windows::Devices::Bluetooth::BluetoothAdapter::GetDefaultAsync();
+	auto adapter = getadapter_op.get();
+	auto supported = adapter.IsLowEnergySupported(); // 获取windows电脑是否支持ble
+	if (supported == false) return false;
+	auto async = adapter.GetRadioAsync();
+	auto radio = async.get();
+	auto t = radio.State(); // 获取电脑蓝牙状态 0未知，1打开，2关闭，3硬件关闭或禁用
+	if (t != winrt::Windows::Devices::Radios::RadioState::On) {
+		return false;
+	}
+	return  true;
+}
+
+
+
+void Scanblebackfun(BluetoothLEAdvertisementWatcher w, BluetoothLEAdvertisementReceivedEventArgs e) {
+	if (e.AdvertisementType() == BluetoothLEAdvertisementType::ConnectableUndirected)
+	{
+		uint64_t address = e.BluetoothAddress(); //获取蓝牙地址，建议不用转字符串太麻烦
+		auto Rssi = e.RawSignalStrengthInDBm(); //获取蓝牙信号强度
+	 	if (BleDevices.find(address) != BleDevices.end()) {
+			return;
+		}
+		BleDevices.insert(pair<uint64_t, int>(address, Rssi));
+		
+		//保存有效地址
+		BluetoothLEDevice dev = BluetoothLEDevice::FromBluetoothAddressAsync(address).get();
+		int cid = 0;
+		auto id = dev.BluetoothDeviceId(); //获取蓝牙唯一id
+		auto name = dev.Name(); //获取蓝牙名称
+
+	
+
+		auto advertisement = e.Advertisement();  //获取蓝牙广播
+		auto Datas = advertisement.DataSections();
+		auto view = Datas.GetView();
+		DataSection DataSections[10];
+		for (size_t i = 0; i < view.Size(); i++)
+		{
+			auto data = Datas.GetAt(i);
+			DataSections[i].Data = data.Data().data();
+			DataSections[i].Lenght = data.Data().Length();
+		}
+
+		dev.Close();
+
+		char ID[MAXBYTE] = { 0 };
+		char Name[MAXBYTE] = { 0 };
+		char Address[MAXBYTE] = { 0 };
+
+		ConvertLPWSTRToChar(id.Id().c_str(), (unsigned char*)ID);
+		ConvertLPWSTRToChar(name.c_str(), (unsigned char*)Name);
+
+		PCHAR mactemp = NULL;
+		mactemp = strchr((char*)ID, '-');
+		errno_t err = strcpy_s(Address, 100, mactemp + 1);
+
+		if (OnScanedBleDeviceCallBack != NULL) {
+			OnScanedBleDeviceCallBack(ID,Name, Address, e.RawSignalStrengthInDBm(), DataSections, view.Size());
+		}
+		//printf("Device : Id :%s	Name:%s address: %s\n", ble->ID, ble->Name, ble->Address);
+	}
+}
+
+
+DWORD WINAPI ScanBleThread(LPVOID lpParameter) {
+	int timeout = (int)lpParameter;
+	
+	m_btWatcher.ScanningMode(BluetoothLEScanningMode::Passive); //扫描所有此时没有连接的蓝牙
+	m_btWatcher.Received(Scanblebackfun); // 注册扫描到的蓝牙回调
+	m_btWatcher.Start(); //开始扫描
+	for(int i = 0; i< timeout/50;i++)
+	{
+		Sleep(50);
+		if (m_btWatcher.Status() == BluetoothLEAdvertisementWatcherStatus::Stopped) {
+			return 0;
+		}
+	}
+
+	m_btWatcher.Stop();//结束扫描
+	if (OnSacnFinishCallBack != NULL) {
+		OnSacnFinishCallBack();
+	}
+	return 0;
+}
+
+
+void ScanBLEDevice(int timeout) {
+	BleDevices.clear();
+	CreateThread(NULL, 0, ScanBleThread,(LPVOID)timeout, 0, NULL);
+}
+
+void StopScanBLEDevice()
+{
+	m_btWatcher.Stop();
+}
+
+HANDLE ConnectBLEDevice(char* ID) {
+
+	map<string, BleHandle*>::iterator it = Pens.find(ID);
+
+	if (it == Pens.end()) {
+		BleHandle* ble = new BleHandle();
+		errno_t err = strncpy_s(ble->ID, sizeof(ble->ID), ID, _TRUNCATE);
+		Pens.insert(pair<string, BleHandle*>(ID, ble));
+		if (ble->ConnectBLEDevice() == false) return NULL;
+		return ble;
+	}
+	else {
+		if (it->second->ConnectBLEDevice() == false) return NULL;
+		return it->second;
+	}
+	
+}
+
+void GetAllServersUUID(HANDLE handle, unsigned int* UUIDArry, unsigned int* ArryCount)
+{
+	BleHandle* ble= (BleHandle*)handle;
+	ble->GetAllServersUUID(UUIDArry, ArryCount);
+}
+
+
+void GetCharcteristicByUUID(HANDLE handle, unsigned int ServiceUUID, unsigned int* UUIDArry, unsigned int* ArryCount)
+{
+	BleHandle* ble = (BleHandle*)handle;
+	ble->GetCharcteristicByUUID(ServiceUUID, UUIDArry, ArryCount);
+}
+
+void GetCharcteristicAction(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID, bool* IsRead, bool* IsWrite, bool* IsNotify)
+{
+	BleHandle* ble = (BleHandle*)handle;
+	ble->GetCharcteristicAction(ServiceUUID, CharacteristicUUID, IsRead, IsWrite, IsNotify);
+}
+
+bool WriteDateByCharcteristic(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID, unsigned char* buff, unsigned int lenght) {
+	BleHandle* ble = (BleHandle*)handle;
+	return ble->WriteDateByCharcteristic(ServiceUUID, CharacteristicUUID, buff, lenght);
+}
+
+void ReadDataByCharcteristic(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID) {
+	BleHandle* ble = (BleHandle*)handle;
+	ble->ReadDataByCharcteristic(ServiceUUID, CharacteristicUUID);
+}
+
+void RegisterReadNotify(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID) {
+	BleHandle* ble = (BleHandle*)handle;
+	ble->RegisterReadNotify(ServiceUUID, CharacteristicUUID);
+}
+
+void CloseBLEDevice(HANDLE handle) {
+	BleHandle* ble = (BleHandle*)handle;
+	ble->CloseBLEDevice();
+	map<string, BleHandle*>::iterator it = Pens.find(ble->ID);
+	if (it != Pens.end()) {
+		Pens.erase(ble->ID);
+	}
+	delete(ble);
+	ble = NULL;
+}
+
