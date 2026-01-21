@@ -10,14 +10,24 @@ namespace protocol {
     };
 
     // ================= 新协议包结构索引定义 =================
+    // 数据包格式：
+    // [0-1]   包头标记 0x02 0x10/0x11
+    // [2-5]   时间戳（4字节，大端）
+    // [6-9]   采样序号（4字节，大端）
+    // [10-33] ADC数据（8通道 × 3字节 = 24字节，大端）
+    // [34-35] 包尾标记 0xAE 0x12
     enum NewHeaderIndex : uint8_t {
         IDX_HEAD_MARKER_H = 0,      // 头标记高字节 0x02
-        IDX_HEAD_MARKER_L = 1,      // 头标记低字节 0x10
-        IDX_TIMESTAMP_H = 2,        // 时间戳高字节
-        IDX_TIMESTAMP_L = 3,        // 时间戳低字节
-        IDX_SAMPLE_SEQ_H = 4,       // 采样序号高字节
-        IDX_SAMPLE_SEQ_L = 5,       // 采样序号低字节
-        IDX_ADC_DATA_START = 10,     // ADC数据起始位置
+        IDX_HEAD_MARKER_L = 1,      // 头标记低字节 0x10/0x11
+        IDX_TIMESTAMP_0 = 2,        // 时间戳字节0（最高位）
+        IDX_TIMESTAMP_1 = 3,        // 时间戳字节1
+        IDX_TIMESTAMP_2 = 4,        // 时间戳字节2
+        IDX_TIMESTAMP_3 = 5,        // 时间戳字节3（最低位）
+        IDX_SAMPLE_SEQ_0 = 6,       // 采样序号字节0（最高位）
+        IDX_SAMPLE_SEQ_1 = 7,       // 采样序号字节1
+        IDX_SAMPLE_SEQ_2 = 8,       // 采样序号字节2
+        IDX_SAMPLE_SEQ_3 = 9,       // 采样序号字节3（最低位）
+        IDX_ADC_DATA_START = 10,    // ADC数据起始位置
     };
 
     // ================= 新协议同步标记定义 =================
@@ -43,39 +53,12 @@ namespace protocol {
         TAIL_MARKER_L
     };
 
-    // ================= 旧协议兼容定义（保留用于控制指令）=================
-    enum HeaderIndex : uint8_t {
-        IDX_SYNC_HEADER_H = 0,
-        IDX_SYNC_HEADER_L,
-        IDX_VERSION,
-        IDX_PACKET_TYPE,
-
-        IDX_HEADER_END,  // 永远放最后
-
-        IDX_SEQ_ID_H,
-        IDX_SEQ_ID_L,
-        IDX_PAYLOAD_LEN_H,
-        IDX_PAYLOAD_LEN_L,
-
-    };
-
-    // 旧协议同步头定义（用于控制指令）
-    constexpr uint16_t SYNC_HEADER = 0xAE12;
-    constexpr uint8_t SYNC_HEADER_H =
-        static_cast<uint8_t>((SYNC_HEADER >> 8) & 0xFF);
-    constexpr uint8_t SYNC_HEADER_L =
-        static_cast<uint8_t>(SYNC_HEADER & 0xFF);
-    constexpr uint8_t PACKET_HEADER[2] = {
-        SYNC_HEADER_H,
-        SYNC_HEADER_L
-    };
-
-    // 协议版本号
-    constexpr uint8_t  PROTOCOL_VERSION = 0x02;
-
-    // 固定协议头长度（不包含 payload）
-    constexpr size_t HEADER_LENGTH =
-        static_cast<size_t>(HeaderIndex::IDX_HEADER_END);
+    // ================= Command Protocol Definition =================
+    // Command format: AE 12 02 XX (4 bytes)
+    constexpr uint8_t CMD_HEADER_0 = 0xAE;
+    constexpr uint8_t CMD_HEADER_1 = 0x12;
+    constexpr uint8_t CMD_HEADER_2 = 0x02;
+    constexpr size_t CMD_TOTAL_LENGTH = 4;
 
     // ================= EEG 数据相关定义 =================
     // EEG 通道数量
@@ -88,28 +71,23 @@ namespace protocol {
     constexpr uint8_t  EEG_CONTACT_BYTES = 0;
 
     // ================= 新协议包长度定义 =================
-    // 头标记(2) + 时间戳(4) + 序号(4) + ADC数据(24) + 尾标记(2) = 32字节
-    constexpr size_t NEW_PACKET_HEADER_SIZE = 10;  // 头标记 + 时间戳 + 序号
+    // 头标记(2) + 时间戳(4) + 序号(4) + ADC数据(24) + 尾标记(2) = 36字节
+    constexpr size_t NEW_PACKET_HEADER_SIZE = 10;  // 头标记(2) + 时间戳(4) + 序号(4)
     constexpr size_t NEW_PACKET_ADC_SIZE = EEG_CHANNEL_COUNT * EEG_CHANNEL_BYTES;  // 24字节
     constexpr size_t NEW_PACKET_TAIL_SIZE = 2;    // 尾标记
     constexpr size_t NEW_PACKET_TOTAL_SIZE = NEW_PACKET_HEADER_SIZE +
         NEW_PACKET_ADC_SIZE +
-        NEW_PACKET_TAIL_SIZE;  // 32字节
+        NEW_PACKET_TAIL_SIZE;  // 36字节
 
     // EEG 数据 payload 总长度（旧协议兼容）
     constexpr uint8_t  EEG_PAYLOAD_SIZE =
         EEG_CHANNEL_COUNT * EEG_CHANNEL_BYTES + EEG_CONTACT_BYTES;
 
-    // ================= 阻抗数据相关定义 =================
-    // 阻抗测量通道数量
-    constexpr uint8_t IMPEDANCE_CHANNEL_COUNT = 10;
-
-    // 单通道阻抗数据字节数
-    constexpr uint8_t IMPEDANCE_CHANNEL_BYTES = 3;
-
-    // 阻抗数据 payload 总长度
-    constexpr uint8_t  IMPEDANCE_PAYLOAD_SIZE =
-        IMPEDANCE_CHANNEL_COUNT * IMPEDANCE_CHANNEL_BYTES;
+    // ================= Impedance Data Definition =================
+    // Impedance output format (for ampGetImpedanceData):
+    // REF(float) + GND(float) + 8 channels * 2 values (impedance + reserved)
+    // Total: (2 + 8 * 2) * 4 bytes = 72 bytes
+    constexpr size_t IMP_OUTPUT_SIZE = (2 + EEG_CHANNEL_COUNT * 2) * sizeof(float);
 
     // ================= 采样参数 =================
     // 默认采样率（Hz）
@@ -118,6 +96,39 @@ namespace protocol {
     // 默认采样周期（ms）
     constexpr uint16_t DEFAULT_INTERVAL_MS =
         1000 / DEFAULT_SAMPLERATE;
+
+    // ================= ADS1299 硬件参数 =================
+    // ADS1299 参考电压（mV）
+    constexpr double ADS1299_VREF = 4500.0;  // 4.5V = 4500mV
+    
+    // ADS1299 增益（当前配置）
+    constexpr double ADS1299_GAIN = 1.0;
+    
+    // ADS1299 24位ADC最大值
+    constexpr uint32_t ADS1299_ADC_MAX = 0x7FFFFF;  // 2^23 - 1
+    constexpr uint32_t ADS1299_ADC_FULL_SCALE = 0x1000000;  // 2^24
+    
+    // ADS1299 LSB电压值（微伏 uV）
+    // LSB = (2 * Vref) / (Gain * (2^24 - 1))
+    constexpr double ADS1299_LSB_UV = (2.0 * ADS1299_VREF * 1000.0) / (ADS1299_GAIN * (ADS1299_ADC_FULL_SCALE - 1));
+    
+    // ================= 阻抗测量参数 =================
+    // 注入电流幅值（安培）
+    constexpr double IMP_CURRENT_AMPS = 6.0e-9;  // 6nA
+    
+    // 注入信号频率（Hz）
+    constexpr double IMP_SIGNAL_FREQ = 31.25;
+    
+    // Goertzel算法系数（针对31.25Hz @ 250Hz采样率）
+    // Coeff = 2 * cos(2 * pi * f / fs) = 2 * cos(pi / 4)
+    constexpr double GOERTZEL_COEFF = 1.41421356237309504880;  // 2 * cos(pi/4) = sqrt(2)
+    
+    // 阻抗测量窗口大小（必须是8的倍数）
+    // 31.25Hz信号在250Hz采样率下每周期8个点
+    constexpr int IMP_WINDOW_SIZE = 32;  // 32点（4个完整周期，更快响应 ~128ms）
+    
+    // 阻抗单位转换：欧姆转千欧
+    constexpr double OHM_TO_KOHM = 0.001;
 
     // ================= 数据包类型定义 =================
     // PacketType：定义主机与设备之间的功能指令与数据类型

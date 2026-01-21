@@ -3,17 +3,17 @@
 # include<string>
 # include "bt/BleHandle.h"
 # include "bt/BLEComm.h"
-# include "BleDeviceManager.h"
-# include "ProtocolManager.h"
+# include "bt/BleDeviceManager.h"
+# include "protocol/ProtocolManager.h"
 # include "PropertyUtil.h"
 
-// Ó¦ÓÃ³ÌĞò°æ±¾ĞÅÏ¢
+// ?????????
 const int32_t AP_MAJOR = 3;
 const int32_t AP_MINOR = 2;
 const int32_t AP_BUILD = 0;
 const int32_t AP_REVISION = 0;
 
-// ¿â°æ±¾ºÅ
+// ?????
 const int32_t LIB_MAJOR = 1;
 const int32_t LIB_MINOR = 22;
 const int32_t LIB_BUILD = 2;
@@ -22,15 +22,15 @@ const int32_t LIB_REVISION = 28;
 using namespace std;
 
 
-// SDKĞèÒª¹ÜÀíÉè±¸ÁĞ±í
+// SDK????????????
 protocol::ProtocolManager protocolManager(RecordingMode::RM_NORMAL);
 BleDeviceManager bleDeviceManager(&protocolManager);
 
-// »Øµ÷º¯Êı£ºµ±À¶ÑÀÉè±¸·¢ËÍÊı¾İÊ±±»µ÷ÓÃ
+// ????????????????????????????????
 void MtBleDeviceRecvDataCallBack(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID, unsigned char* recvData, unsigned int length) {
-	// ´òÓ¡ÊÕµ½µÄ·şÎñºÍÌØÕ÷µÄ UUID
+	// ?????????????????? UUID
 	//std::cout << "Received data from service UUID: " << std::hex << ServiceUUID << " characteristic UUID: " << CharacteristicUUID << std::dec << std::endl;
-	// ´òÓ¡½ÓÊÕµ½µÄÊı¾İ
+	// ??????????????
 	//std::cout << "Received data (" << length << " bytes): ";
 	//for (unsigned int i = 0; i < length; ++i) {
 	//    std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)recvData[i] << " ";
@@ -43,9 +43,9 @@ void MtBleDeviceRecvDataCallBack(HANDLE handle, unsigned int ServiceUUID, unsign
 
 void MtScanedBleDeviceCallBack(const char* ID, const char* PenName, const char* PenMac, int rssi, DataSection* DataSections, int DataSectionCount)
 {
-	// Âß¼­ĞèÒªÍêÉÆ
+	// Filter devices by name and save full device info (name + MAC)
 	if (string(PenName).find("Mindtooth") != string::npos) {
-		bleDeviceManager.addDevice(ID);
+		bleDeviceManager.addDevice(ID, PenName, PenMac);
 	}
 }
 
@@ -68,13 +68,13 @@ void MtConnectionBleDeviceStatusCallBack(HANDLE handle, const char* PenMac, bool
 	bleDeviceManager.connCv.notify_one();
 }
 
-/// <summary>    »ñÈ¡Ó¦ÓÃ³ÌĞò½Ó¿Ú°æ±¾ºÅ </summary>
- /// <param name="pAPIVersion">   [out] API°æ±¾
- ///          ĞŞ¶©ºÅ = 0
- ///          ¹¹½¨ºÅ = 0
- ///          ´Î°æ±¾ºÅ = ´Î°æ±¾
- ///          Ö÷°æ±¾ºÅ = Ö÷°æ±¾</param>
- /// <returns>´íÎó´úÂë</returns>
+/// <summary>    ????????????? </summary>
+ /// <param name="pAPIVersion">   [out] API??
+ ///          ????? = 0
+ ///          ?????? = 0
+ ///          ????? = ???
+ ///          ?????? = ????</param>
+ /// <returns>???????</returns>
 int GetAPIVersion(t_VersionNumber* pAPIVersion) {
 	pAPIVersion->Major = AP_MAJOR;
 	pAPIVersion->Minor = AP_MINOR;
@@ -83,13 +83,13 @@ int GetAPIVersion(t_VersionNumber* pAPIVersion) {
 	return AMP_OK;
 }
 
-/// <summary>    »ñÈ¡¿â°æ±¾ºÅ </summary>
-/// <param name="pLibraryVersion">   [out] ¿â°æ±¾
-///          ĞŞ¶©ºÅ = ·¢²¼ÈÕÆÚ
-///          ¹¹½¨ºÅ = ·¢²¼ÔÂ·İ
-///          ´Î°æ±¾ºÅ = ·¢²¼Äê·İ
-///          Ö÷°æ±¾ºÅ = Ö÷°æ±¾</param>
-/// <returns>´íÎó´úÂë</returns>
+/// <summary>    ???????? </summary>
+/// <param name="pLibraryVersion">   [out] ???
+///          ????? = ????????
+///          ?????? = ??????
+///          ????? = ???????
+///          ?????? = ????</param>
+/// <returns>???????</returns>
 int GetLibraryVersion(t_VersionNumber* pLibraryVersion) {
 	pLibraryVersion->Major = LIB_MAJOR;
 	pLibraryVersion->Minor = LIB_MINOR;
@@ -98,14 +98,14 @@ int GetLibraryVersion(t_VersionNumber* pLibraryVersion) {
 	return AMP_OK;
 }
 
-/// <summary>    Ã¶¾Ù¿ÉÓÃÉè±¸ </summary>
-/// <param name="HWI">              Ñ¡ÔñÓ²¼şÍ¨ĞÅ½Ó¿Ú»òÈÃ¿âÍ¨¹ı"ANY"×Ô¶¯Ñ¡Ôñ
-///                                 Èç¹ûÉèÎª"ANY"£¬ÔòÍ¨¹ı´Ë±äÁ¿·µ»Ø×Ô¶¯Ñ¡ÔñµÄ½Ó¿Ú
-///                                 ¿ÉÄÜÖµ°üÀ¨"ANY", "USB", "BT"ºÍ"SIM"</param>
-/// <param name="HWISize">          ×Ö·û´®»º³åÇø´óĞ¡</param>
-/// <param name="DeviceAddress">    Ô¤Ñ¡µÄÉè±¸µØÖ·</param>
-/// <param name="flags">            Éè±¸Ïà¹Ø±êÖ¾</param>
-/// <returns>    ¿ÉÓÃÉè±¸ÊıÁ¿</returns>
+/// <summary>    ??????? </summary>
+/// <param name="HWI">              ?????????????ÿ????"ANY"??????
+///                                 ??????"ANY"?????????????????????????
+///                                 ?????????"ANY", "USB", "BT"??"SIM"</param>
+/// <param name="HWISize">          ??????????????</param>
+/// <param name="DeviceAddress">    ?????????</param>
+/// <param name="flags">            ???????</param>
+/// <returns>    ??????????</returns>
 int ampEnumerateDevices(char* HWI, int32_t HWISize, const char* DeviceAddress, uint32_t flags) {
 	if (!HWI || HWISize <= 0) {
 		return AMP_ERR_PARAM;
@@ -113,7 +113,7 @@ int ampEnumerateDevices(char* HWI, int32_t HWISize, const char* DeviceAddress, u
 	std::string hwi = (HWI != nullptr) ? HWI : "";
 
 	if (hwi == "BT") {
-		// Ö§³Ö
+		// ???
 	}
 	else if (hwi == "USB") {
 		return AMP_ERR_VERSION;
@@ -122,21 +122,23 @@ int ampEnumerateDevices(char* HWI, int32_t HWISize, const char* DeviceAddress, u
 		return AMP_ERR_VERSION;
 	}
 	else if (hwi == "ANY") {
-		// Ö§³Ö£¨BT£©
+		// ????BT??
 	}
 
-	// É¨ÃèÉè±¸
+	// ?????
 	RegisterRecvBleDevice(MtScanedBleDeviceCallBack);
 	RegisterSacnBleDeviceFinish(MtScanFinishBack);
 	RegisterBleDeviceRecvData(MtBleDeviceRecvDataCallBack);
 
-	return bleDeviceManager.searchDevice();
+	// Enhanced scan with retry: 10s scan time, up to 3 retries
+	// This helps find devices that may not be advertising continuously
+	return bleDeviceManager.searchDevice(10000, 3);
 }
 
-/// <summary>    »ñÈ¡Éè±¸µØÖ· </summary>
-/// <param name="DeviceNr">         ´Ó0¿ªÊ¼µÄÉè±¸±àºÅ</param>
-/// <param name="DeviceAddress">    Éè±¸µØÖ·»º³åÇø</param>
-/// <param name="BufferSize">       »º³åÇø´óĞ¡</param>
+/// <summary>    ???????? </summary>
+/// <param name="DeviceNr">         ??0??????????</param>
+/// <param name="DeviceAddress">    ???????????</param>
+/// <param name="BufferSize">       ?????????</param>
 /// <returns>    . </returns>
 int ampGetDeviceAddress(int32_t DeviceNr, char* DeviceAddress, int32_t BufferSize) {
 	if (!DeviceAddress || BufferSize <= 0) return AMP_ERR_PARAM;
@@ -145,9 +147,9 @@ int ampGetDeviceAddress(int32_t DeviceNr, char* DeviceAddress, int32_t BufferSiz
 	return AMP_OK;
 }
 
-/// <summary>    ´ò¿ªÉè±¸ </summary>
-/// <param name="DeviceNr">         ´Ó0¿ªÊ¼µÄÉè±¸±àºÅ</param>
-/// <param name="DeviceHandle">     ·µ»ØÉè±¸¾ä±ú</param>
+/// <summary>    ???? </summary>
+/// <param name="DeviceNr">         ??0??????????</param>
+/// <param name="DeviceHandle">     ?????????</param>
 /// <returns>    . </returns>
 int ampOpenDevice(int32_t DeviceNr, HANDLE* DeviceHandle) {
 
@@ -160,15 +162,15 @@ int ampOpenDevice(int32_t DeviceNr, HANDLE* DeviceHandle) {
 	return AMP_OK;
 }
 
-/// <summary>    »ñÈ¡ÊôĞÔÖµ </summary>
-/// <param name="DeviceHandle">     Éè±¸¾ä±ú</param>
-/// <param name="PropertyGroup">    ÊôĞÔ×éÑ¡Ôñ</param>
-/// <param name="Index">            Éè±¸ÊôĞÔ×é²»ĞèÒª´Ë²ÎÊı£¬Ó¦ÎªÁã
-///                                 Í¨µÀÊôĞÔ×éÎª´Ó0¿ªÊ¼µÄÍ¨µÀºÅ
-///                                 Ä£¿éÊôĞÔ×éÎª´Ó0¿ªÊ¼µÄÄ£¿éºÅ</param>
-/// <param name="PropertyID">       ÊôĞÔ±êÊ¶·û</param>
-/// <param name="PropertyValue">    ÊôĞÔÖµ»º³åÇø</param>
-/// <param name="ValueByteSize">    Öµ»º³åÇø´óĞ¡(×Ö½Ú)</param>
+/// <summary>    ???????? </summary>
+/// <param name="DeviceHandle">     ?????</param>
+/// <param name="PropertyGroup">    ?????????</param>
+/// <param name="Index">            ??????????????????????
+///                                 ????????????0??????????
+///                                 ????????????0?????????</param>
+/// <param name="PropertyID">       ????????</param>
+/// <param name="PropertyValue">    ???????????</param>
+/// <param name="ValueByteSize">    ??????????(???)</param>
 int ampGetProperty(
 	HANDLE DeviceHandle,
 	t_PropertyGroup PropertyGroup,
@@ -195,15 +197,15 @@ int ampGetProperty(
 	return AMP_OK;
 }
 
-/// <summary>    ÉèÖÃÊôĞÔÖµ </summary>
-/// <param name="DeviceHandle">     Éè±¸¾ä±ú</param>
-/// <param name="PropertyGroup">    ÊôĞÔ×éÑ¡Ôñ</param>
-/// <param name="Index">            Éè±¸ÊôĞÔ×é²»ĞèÒª´Ë²ÎÊı£¬Ó¦ÎªÁã
-///                                 Í¨µÀÊôĞÔ×éÎª´Ó0¿ªÊ¼µÄÍ¨µÀºÅ
-///                                 Ä£¿éÊôĞÔ×éÎª´Ó0¿ªÊ¼µÄÄ£¿éºÅ</param>
-/// <param name="PropertyID">       ÊôĞÔ±êÊ¶·û</param>
-/// <param name="PropertyValue">    ÊôĞÔÖµ»º³åÇø</param>
-/// <param name="ValueByteSize">    Öµ»º³åÇø´óĞ¡(×Ö½Ú)</param>
+/// <summary>    ????????? </summary>
+/// <param name="DeviceHandle">     ?????</param>
+/// <param name="PropertyGroup">    ?????????</param>
+/// <param name="Index">            ??????????????????????
+///                                 ????????????0??????????
+///                                 ????????????0?????????</param>
+/// <param name="PropertyID">       ????????</param>
+/// <param name="PropertyValue">    ???????????</param>
+/// <param name="ValueByteSize">    ??????????(???)</param>
 int ampSetProperty(
 	HANDLE DeviceHandle,
 	t_PropertyGroup PropertyGroup,
@@ -226,19 +228,19 @@ int ampSetProperty(
 		return AMP_ERR_PARAM;
 	}
 }
-/// <summary>    »ñÈ¡ÊôĞÔ·¶Î§ºÍ·¶Î§ÀàĞÍ </summary>
-/// <param name="DeviceHandle">     Éè±¸¾ä±ú</param>
-/// <param name="PropertyGroup">    ÊôĞÔ×éÑ¡Ôñ</param>
-/// <param name="Index">            Éè±¸ÊôĞÔ×é²»ĞèÒª´Ë²ÎÊı£¬Ó¦ÎªÁã
-///                                 Í¨µÀÊôĞÔ×éÎª´Ó0¿ªÊ¼µÄÍ¨µÀºÅ
-///                                 Ä£¿éÊôĞÔ×éÎª´Ó0¿ªÊ¼µÄÄ£¿éºÅ</param>
-/// <param name="PropertyID">       ÊôĞÔ±êÊ¶·û</param>
-/// <param name="RangeArray">       ÊôĞÔ·¶Î§Êı×é»º³åÇø
-///                                 Êı×éÔªËØÓëÊôĞÔ±¾Éí¾ßÓĞÏàÍ¬µÄÊı¾İÀàĞÍ£¬
-///                                 ×Ö·û´®ÊôĞÔµÄRT_MINMAXÓĞÕûÊıÔªËØ±íÊ¾×îĞ¡ºÍ×î´ó×Ö·ûÊı
-///                                 ÀëÉ¢×Ö·û´®ÊôĞÔ·¶Î§×÷ÎªÒÔÁã½áÎ²µÄ×Ö·û´®·µ»Ø£¬ÔªËØÒÔLF×Ö·û·Ö¸ô</param>
-/// <param name="ArrayByteSize">    Êı×é»º³åÇø´óĞ¡(×Ö½Ú)</param>
-/// <param name="RangeType">        ÊôĞÔ·¶Î§ÀàĞÍ</param>
+/// <summary>    ????????????????? </summary>
+/// <param name="DeviceHandle">     ?????</param>
+/// <param name="PropertyGroup">    ?????????</param>
+/// <param name="Index">            ??????????????????????
+///                                 ????????????0??????????
+///                                 ????????????0?????????</param>
+/// <param name="PropertyID">       ????????</param>
+/// <param name="RangeArray">       ??????????????
+///                                 ??????????????????????????????????
+///                                 ??????????RT_MINMAX????????????????????????
+///                                 ????????????????????????????????????????LF??????</param>
+/// <param name="ArrayByteSize">    ???????????(???)</param>
+/// <param name="RangeType">        ??????????</param>
 int ampGetPropertyRange(
 	HANDLE DeviceHandle,
 	t_PropertyGroup PropertyGroup,
@@ -265,48 +267,48 @@ int ampGetPropertyRange(
 }
 
 
-/// <summary>    Æô¶¯Êı¾İ²É¼¯ </summary>
-/// <param name="DeviceHandle">     Éè±¸¾ä±ú</param>
+/// <summary>    ?????????? </summary>
+/// <param name="DeviceHandle">     ?????</param>
 /// <returns>    . </returns>
 int ampStartAcquisition(HANDLE DeviceHandle) {
 	return bleDeviceManager.startAcquisition(DeviceHandle) ? AMP_OK : AMP_ERR_BUSY;
 }
-/// <summary>    Í£Ö¹Êı¾İ²É¼¯ </summary>
-/// <param name="DeviceHandle">     Éè±¸¾ä±ú</param>
+/// <summary>    ???????? </summary>
+/// <param name="DeviceHandle">     ?????</param>
 /// <returns>    . </returns>
 int ampStopAcquisition(HANDLE DeviceHandle) {
 	return bleDeviceManager.stopAcquisition(DeviceHandle) ? AMP_OK : AMP_ERR_BUSY;
 }
 
-/// <summary>    ¹Ø±ÕÉè±¸ </summary>
-/// <param name="DeviceHandle">     Éè±¸¾ä±ú</param>
+/// <summary>    ????? </summary>
+/// <param name="DeviceHandle">     ?????</param>
 /// <returns>    . </returns>
 int ampCloseDevice(HANDLE DeviceHandle) {
 	return bleDeviceManager.closeDevice(DeviceHandle) ? AMP_OK : AMP_ERR_BUSY;
 }
-/// <summary>    ÉèÖÃÊı×Ö¶Ë¿Ú </summary>
-/// <param name="DeviceHandle">     Éè±¸¾ä±ú</param>
-/// <param name="PortNumber">       ¶Ë¿ÚºÅ</param>
-/// <param name="value">            Öµ</param>
+/// <summary>    ?????????? </summary>
+/// <param name="DeviceHandle">     ?????</param>
+/// <param name="PortNumber">       ????</param>
+/// <param name="value">            ?</param>
 /// <returns>    . </returns>
 int ampSetDigitalPort(HANDLE DeviceHandle, int32_t PortNumber, uint32_t value) {
 	return AMP_ERR_NOSUPPORT;
 }
 
-/// <summary>    ´ÓÉè±¸¶ÁÈ¡²É¼¯µÄÊı¾İ
-///              »º³åÇøÖĞµÄÍ¨µÀË³ĞòÎª
+/// <summary>    ????????????????
+///              ????????????????
 ///              S1_SAMPLECOUNTER, S1_CH1 .. S1_CHn,
 ///              S2_SAMPLECOUNTER, S2_CH1 .. S2_CHn,
 ///              ...
 ///              Sn_SAMPLECOUNTER, Sn_CH1 .. Sn_CHn
-///              Ñù±¾´óĞ¡È¡¾öÓÚÆôÓÃµÄÍ¨µÀÊıºÍÍ¨µÀÊı¾İÀàĞÍ
-///              Ñù±¾¼ÆÊıÆ÷ÊÇ64Î»ÎŞ·ûºÅÕûÊı
+///              ??????????????????????????????????
+///              ????????????64??????????
 /// </summary>
-/// <param name="DeviceHandle">         Éè±¸¾ä±ú</param>
-/// <param name="Buffer">               ½ÓÊÕ»º³åÇø</param>
-/// <param name="BufferSize">           ½ÓÊÕ»º³åÇø´óĞ¡(×Ö½Ú)</param>
-/// <param name="RequestedSamples">     ÇëÇóµÄÑù±¾Êı(ÉĞÎ´Ö§³Ö)</param>
-/// <returns>Ğ´Èë½ÓÊÕ»º³åÇøµÄ×Ö½ÚÊı</returns>
+/// <param name="DeviceHandle">         ?????</param>
+/// <param name="Buffer">               ?????????</param>
+/// <param name="BufferSize">           ????????????(???)</param>
+/// <param name="RequestedSamples">     ???????????(??????)</param>
+/// <returns>??????????????????</returns>
 int ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t RequestedSamples) {
 
 	if (!Buffer || BufferSize <= 0 || RequestedSamples <= 0) {
@@ -318,66 +320,78 @@ int ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t Re
 		return IF_ERR_PARAMETER;
 	}
 
-	// Buffer ×î¶àÄÜÈİÄÉ¶àÉÙ¸ö sample
+	// Buffer ????????????? sample
 	int maxSampleCount = BufferSize / sampleLen;
 	if (maxSampleCount <= 0) {
 		return IF_ERR_PARAMETER;
 	}
 
-	// Êµ¼ÊÇëÇóµÄ sample Êı
+	// ???????? sample ??
 	int requestCount = min(RequestedSamples, maxSampleCount);
 
-	// ´ÓĞ­Òé²ã»ñÈ¡Êı¾İ£¨Ò»Î¬ byte buffer£©
+	// ??????????????? byte buffer??
 	vector<uint8_t> data = protocolManager.getEEGData(requestCount);
 
-	// Êµ¼Ê»ñÈ¡µ½µÄ sample Êı
+	// ????????? sample ??
 	int actualSamples = static_cast<int>(data.size() / sampleLen);
 	if (actualSamples <= 0) {
-		return 0;  // Ã»Êı¾İ²»ÊÇ´íÎó
+		return 0;  // ??????????
 	}
 
-	// Êµ¼ÊĞèÒª¿½±´µÄ×Ö½ÚÊı
+	// ?????????????????
 	size_t bytesToCopy = static_cast<size_t>(actualSamples) * sampleLen;
 
-	// ¿½±´µ½ÓÃ»§ Buffer
+	// ???????? Buffer
 	memcpy(Buffer, data.data(), bytesToCopy);
 
-	// ·µ»Ø£ºÊµ¼ÊĞ´ÈëµÄ sample Êı
+	// ???????????? sample ??
 	return data.size();
 }
 
 
-/// <summary>    »ñÈ¡Ñ¡¶¨Í¨µÀµÄ×è¿¹Êı¾İ
-///              »º³åÇøÖĞµÄÍ¨µÀË³ĞòÎª
-///              M0 GND×è¿¹, M0 REF×è¿¹, ... Mn GND, Mn REF, CH1+, CH1-, CH2+, CH2-, .. CHn+, CHn-
-///              M0 - MnÊÇËùÓĞMPROP_B32_ImpedanceMeasurementÊôĞÔÉèÖÃµÄÄ£¿éµÄµØºÍ²Î¿¼×è¿¹
-///              ËùÓĞÖµÀàĞÍÎªfloat£¬µ¥Î»Îª[¦¸]
-///              Ë«¼«µç¼«µÄCH-Öµ²ÅÓĞĞ§£¬Èç¹û×è¿¹Öµ²»¿ÉÓÃÔòÎª-1
-/// <param name="DeviceHandle">     Éè±¸¾ä±ú</param>
-/// <param name="Buffer">           ½ÓÊÕ»º³åÇø</param>
-/// <param name="BufferSize">       ½ÓÊÕ»º³åÇø´óĞ¡(×Ö½Ú)</param>
-/// <returns>Ğ´Èë½ÓÊÕ»º³åÇøµÄ×Ö½ÚÊı</returns>
+/// <summary>    ?????????????????
+///              ????????????????
+///              M0 GND??, M0 REF??, ... Mn GND, Mn REF, CH1+, CH1-, CH2+, CH2-, .. CHn+, CHn-
+///              M0 - Mn??????MPROP_B32_ImpedanceMeasurement??????????????????
+///              ??????????float??????[??]
+///              ???????CH-???????????????????????-1
+/// <param name="DeviceHandle">     ?????</param>
+/// <param name="Buffer">           ?????????</param>
+/// <param name="BufferSize">       ????????????(???)</param>
+/// <returns>??????????????????</returns>
 int ampGetImpedanceData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize) {
 
 	if (!Buffer || BufferSize <= 0) {
 		return IF_ERR_PARAMETER;
 	}
-	vector<float> impedances = protocolManager.getImpedanceData(125);
 
-	memcpy(Buffer, impedances.data(), BufferSize);
+	// Get real-time impedance (uses latest 248 samples from sliding window)
+	vector<float> impedances = protocolManager.getImpedanceData();
 
-	return 1;
+	if (impedances.empty()) {
+		return 0;  // No data available
+	}
+
+	// Calculate bytes to copy (up to buffer size)
+	size_t bytesToCopy = min(
+		static_cast<size_t>(BufferSize),
+		impedances.size() * sizeof(float)
+	);
+
+	memcpy(Buffer, impedances.data(), bytesToCopy);
+
+	return static_cast<int>(bytesToCopy);
 }
 
-/// <summary>    ¿ªÊ¼¼ÇÂ¼µ½ÄÚ²¿ÄÚ´æ </summary>
-/// <param name="DeviceHandle">     Éè±¸¾ä±ú</param>
+/// <summary>    ????????????? </summary>
+/// <param name="DeviceHandle">     ?????</param>
 /// <returns>    . </returns>
 int ampStartFlashRecording(HANDLE DeviceHandle) {
 	return AMP_OK;
 }
 
-/// <summary>    Í£Ö¹¼ÇÂ¼µ½ÄÚ²¿ÄÚ´æ </summary>
-/// <param name="DeviceHandle">     Éè±¸¾ä±ú</param>
+/// <summary>    ???????????? </summary>
+/// <param name="DeviceHandle">     ?????</param>
 /// <returns>    . </returns>
 int ampStopFlashRecording(HANDLE DeviceHandle) {
 	return AMP_OK;

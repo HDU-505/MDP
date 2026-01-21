@@ -39,19 +39,10 @@
     <ClInclude Include="bt\BleHandle.h">
       <Filter>头文件\bt</Filter>
     </ClInclude>
-    <ClInclude Include="BleDeviceManager.h">
-      <Filter>头文件\bt</Filter>
-    </ClInclude>
-    <ClInclude Include="protocol\Processor.h">
-      <Filter>头文件\protocol</Filter>
-    </ClInclude>
     <ClInclude Include="protocol\Constants.h">
       <Filter>头文件\protocol</Filter>
     </ClInclude>
     <ClInclude Include="protocol\Parser.h">
-      <Filter>头文件\protocol</Filter>
-    </ClInclude>
-    <ClInclude Include="ProtocolManager.h">
       <Filter>头文件\protocol</Filter>
     </ClInclude>
     <ClInclude Include="Version.h">
@@ -62,6 +53,33 @@
     </ClInclude>
     <ClInclude Include="ImpedanceUtil.h">
       <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="protocol\DualModeBuffer.h">
+      <Filter>头文件\protocol</Filter>
+    </ClInclude>
+    <ClInclude Include="protocol\RingBuffer.h">
+      <Filter>头文件\protocol</Filter>
+    </ClInclude>
+    <ClInclude Include="bt\BleDeviceManager.h">
+      <Filter>头文件\bt</Filter>
+    </ClInclude>
+    <ClInclude Include="protocol\ProtocolManager.h">
+      <Filter>头文件\protocol</Filter>
+    </ClInclude>
+    <ClInclude Include="ErrorHandler.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="HardwareConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="RealTimeImpedanceCalculator.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="protocol\Processor.h">
+      <Filter>头文件\protocol</Filter>
+    </ClInclude>
+    <ClInclude Include="bt\BleDeviceCache.h">
+      <Filter>头文件\bt</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -80,22 +98,28 @@
     <ClCompile Include="bt\BleHandle.cpp">
       <Filter>源文件\bt</Filter>
     </ClCompile>
-    <ClCompile Include="BleDeviceManager.cpp">
-      <Filter>源文件\bt</Filter>
-    </ClCompile>
-    <ClCompile Include="protocol\EEGPacketAssembler.cpp">
-      <Filter>源文件\protocol</Filter>
-    </ClCompile>
     <ClCompile Include="protocol\ProtocolParser.cpp">
-      <Filter>源文件\protocol</Filter>
-    </ClCompile>
-    <ClCompile Include="ProtocolManager.cpp">
       <Filter>源文件\protocol</Filter>
     </ClCompile>
     <ClCompile Include="PropertyUtil.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="ImpedanceUtil.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="bt\BleDeviceManager.cpp">
+      <Filter>源文件\bt</Filter>
+    </ClCompile>
+    <ClCompile Include="protocol\ProtocolManager.cpp">
+      <Filter>源文件\protocol</Filter>
+    </ClCompile>
+    <ClCompile Include="HardwareConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="protocol\Processor.cpp">
+      <Filter>源文件\protocol</Filter>
+    </ClCompile>
+    <ClCompile Include="ErrorHandler.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

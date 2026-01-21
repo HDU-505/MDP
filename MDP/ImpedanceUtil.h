@@ -1,38 +1,70 @@
 #pragma once
 #include <vector>
 #include <cmath>
-#include <complex>
 
-// 工具类：用于处理EEG数据并计算阻抗
+/**
+ * @brief Impedance Calculation Utility using Goertzel Algorithm
+ *
+ * This class implements impedance calculation for EEG data using the Goertzel algorithm
+ * to extract the amplitude at a specific frequency (31.25Hz for MT08 ADS1299).
+ *
+ * Key parameters:
+ * - Sampling rate: 250 Hz
+ * - Target frequency: 31.25 Hz (injected AC signal)
+ * - Injected current: 6 nA RMS
+ * - Window size: Must be multiple of 8 (recommended: 248 samples)
+ */
 class ImpedanceUtil
 {
 public:
-    /// <summary>   构造函数 </summary>
-    /// <param name="samplingRate">  采样率 </param>
-    /// <param name="targetFreq">    目标频率(f_loff) </param>
-    /// <param name="windowSize">    滑动窗口大小(采样点数) </param>
-    /// <param name="stepSize">      滑动步长(采样点数) </param>
-    ImpedanceUtil(float samplingRate, float targetFreq, int windowSize, int stepSize);
+    /**
+     * @brief Constructor
+     * @param samplingRate Sampling rate in Hz (default: 250Hz)
+     * @param targetFreq Target frequency in Hz (default: 31.25Hz)
+     * @param windowSize Window size in samples (must be multiple of 8, default: 248)
+     */
+    ImpedanceUtil(float samplingRate = 250.0f, 
+                  float targetFreq = 31.25f, 
+                  int windowSize = 248);
     ~ImpedanceUtil();
 
-    /// <summary>   处理单行EEG时域数据 (一个通道的数据？) </summary>
-    /// <param name="data">  时域信号向量 </param>
-    // 输出: 对应的阻抗值向量 (每个窗口一个值)
-    std::vector<float> ImpedanceCalculation(const std::vector<float>& data);
+    /**
+     * @brief Calculate impedance values from EEG voltage data
+     * @param voltageData Time-domain voltage signal in microvolts (uV)
+     * @return Impedance values in kilohms (k锟斤拷)
+     */
+    std::vector<float> CalculateImpedance(const std::vector<float>& voltageData);
+
+    /**
+     * @brief Calculate single impedance value from one window of data
+     * @param voltageData Voltage data window in microvolts (uV)
+     * @return Impedance value in kilohms (k锟斤拷)
+     */
+    float CalculateSingleImpedance(const std::vector<float>& voltageData);
 
 private:
-    float m_samplingRate;
-    float m_targetFreq;
-    int m_windowSize;
-    int m_stepSize;
-    std::vector<float> m_windowFunc;
+    float m_samplingRate;      // Sampling rate (Hz)
+    float m_targetFreq;        // Target frequency (Hz)
+    int m_windowSize;          // Window size (samples)
+    double m_coeff;            // Goertzel coefficient
 
-    // 初始化窗口函数 (Hanning窗)
-    void InitWindow();
+    /**
+     * @brief Calculate Goertzel coefficient
+     * Coeff = 2 * cos(2 * pi * targetFreq / samplingRate)
+     */
+    void CalculateCoefficient();
 
-    // 计算窗口数据的目标频率幅值 (使用DFT/Goertzel思想)
-    float CalculateAmplitude(const std::vector<float>& windowData);
+    /**
+     * @brief Extract amplitude at target frequency using Goertzel algorithm
+     * @param voltageData Voltage data in microvolts (uV)
+     * @return RMS amplitude in microvolts (uV)
+     */
+    float GoertzelAmplitude(const std::vector<float>& voltageData);
 
-    // 根据幅值计算阻抗
-    float CalculateImpedance(int32_t adc_code, double v_ref, double gain, double i_source);
+    /**
+     * @brief Convert voltage amplitude to impedance
+     * @param amplitudeUV Voltage amplitude in microvolts (uV)
+     * @return Impedance in kilohms (k锟斤拷)
+     */
+    float VoltageToImpedance(float amplitudeUV);
 };

@@ -7,111 +7,41 @@ using namespace std;
 
 namespace protocol {
 
-    // ================= ¿ØÖÆÖ¸Áî¹¹½¨£¨¾ÉÐ­Òé¸ñÊ½±£³Ö²»±ä£©=================
+    // ================= Command Building =================
 
     std::vector<uint8_t> Parser::buildControlPacket(PacketType packetType) {
-        std::vector<uint8_t> data(HEADER_LENGTH);
+        std::vector<uint8_t> data(CMD_TOTAL_LENGTH);
 
-        // V2.5°æ±¾Ð­Òé½á¹¹
-        data[IDX_SYNC_HEADER_H] = (SYNC_HEADER >> 8) & 0xFF;
-        data[IDX_SYNC_HEADER_L] = SYNC_HEADER & 0xFF;
-        data[IDX_VERSION] = PROTOCOL_VERSION;
-        data[IDX_PACKET_TYPE] = packetType;
-
-        return data;
-    }
-
-    std::vector<uint8_t> Parser::buildConfigPacket(PacketType packetType, uint16_t value) {
-        std::vector<uint8_t> data(HEADER_LENGTH + 4 + 2);
-
-        data[IDX_SYNC_HEADER_H] = (SYNC_HEADER >> 8) & 0xFF;
-        data[IDX_SYNC_HEADER_L] = SYNC_HEADER & 0xFF;
-        data[IDX_VERSION] = PROTOCOL_VERSION;
-        data[IDX_PACKET_TYPE] = packetType;
-
-        data[IDX_SEQ_ID_H] = 0x00;
-        data[IDX_SEQ_ID_L] = 0x00;
-
-        data[IDX_PAYLOAD_LEN_H] = 0x00;
-        data[IDX_PAYLOAD_LEN_L] = 0x02;
-
-        data[8] = (value >> 8) & 0xFF;
-        data[9] = value & 0xFF;
+        // Command format: AE 12 02 XX
+        // AE 12 02 10 - Normal EEG data mode (0x10)
+        // AE 12 02 11 - AC impedance mode (0x11)
+        // AE 12 02 12 - Stop acquisition (0x12)
+        data[0] = CMD_HEADER_0;
+        data[1] = CMD_HEADER_1;
+        data[2] = CMD_HEADER_2;
+        data[3] = packetType;
 
         return data;
     }
 
-    std::vector<uint8_t> Parser::buildStreamControlPacket(PacketType packetType, StreamMask streamMask) {
-        std::vector<uint8_t> data(HEADER_LENGTH + 4 + 1);
-
-        data[IDX_SYNC_HEADER_H] = (SYNC_HEADER >> 8) & 0xFF;
-        data[IDX_SYNC_HEADER_L] = SYNC_HEADER & 0xFF;
-        data[IDX_VERSION] = PROTOCOL_VERSION;
-        data[IDX_PACKET_TYPE] = packetType;
-
-        data[IDX_SEQ_ID_H] = 0x00;
-        data[IDX_SEQ_ID_L] = 0x00;
-
-        data[IDX_PAYLOAD_LEN_H] = 0x00;
-        data[IDX_PAYLOAD_LEN_L] = 0x01;
-
-        data[8] = static_cast<uint8_t>(streamMask);
-
-        return data;
-    }
-
-    std::vector<uint8_t> Parser::buildResponsePacket(ResponseCode responseCode) {
-        std::vector<uint8_t> data(HEADER_LENGTH + 4 + 1);
-
-        data[IDX_SYNC_HEADER_H] = (SYNC_HEADER >> 8) & 0xFF;
-        data[IDX_SYNC_HEADER_L] = SYNC_HEADER & 0xFF;
-        data[IDX_VERSION] = PROTOCOL_VERSION;
-        data[IDX_PACKET_TYPE] = PKT_PING;
-
-        data[IDX_SEQ_ID_H] = 0x00;
-        data[IDX_SEQ_ID_L] = 0x00;
-
-        data[IDX_PAYLOAD_LEN_H] = 0x00;
-        data[IDX_PAYLOAD_LEN_L] = 0x01;
-
-        data[8] = static_cast<uint8_t>(responseCode);
-
-        return data;
-    }
-
-    ResponseCode Parser::parseResponse(const std::vector<uint8_t>& data) {
-        if (data.size() < 9) {
-            return RESP_ERROR;
-        }
-
-        uint8_t responseCode = data[8];
-
-        switch (responseCode) {
-        case RESP_SUCCESS:
-            return RESP_SUCCESS;
-        case RESP_ERROR:
-            return RESP_ERROR;
-        case RESP_UNSUPPORTED:
-            return RESP_UNSUPPORTED;
-        default:
-            return RESP_ERROR;
-        }
-    }
-
-    // ================= ÐÂÐ­ÒéEEGÊý¾Ý½âÎöÊµÏÖ =================
+    // ================= Data Packet Validation =================
 
     bool Parser::validateNewPacket(const uint8_t* data, size_t len) {
         if (!data || len < NEW_PACKET_TOTAL_SIZE) {
             return false;
         }
 
-        // ÑéÖ¤Í·±ê¼Ç£º0x02 0x10
-        if (data[IDX_HEAD_MARKER_H] != HEAD_MARKER_H ||
-            data[IDX_HEAD_MARKER_L] != HEAD_MARKER_L) {
+        // Validate header marker: 0x02 0x10 or 0x02 0x11
+        if (data[IDX_HEAD_MARKER_H] != HEAD_MARKER_H) {
+            return false;
+        }
+        
+        // 0x10 = Normal data mode, 0x11 = Impedance mode
+        if (data[IDX_HEAD_MARKER_L] != 0x10 && data[IDX_HEAD_MARKER_L] != 0x11) {
             return false;
         }
 
-        // ÑéÖ¤Î²±ê¼Ç£º0xAE 0x12
+        // Validate tail marker: 0xAE 0x12
         size_t tailPos = NEW_PACKET_HEADER_SIZE + NEW_PACKET_ADC_SIZE;
         if (data[tailPos] != TAIL_MARKER_H ||
             data[tailPos + 1] != TAIL_MARKER_L) {
@@ -121,17 +51,53 @@ namespace protocol {
         return true;
     }
 
-    uint16_t Parser::getTimestampFromNewPacket(const uint8_t* data, size_t len) {
+    uint32_t Parser::getTimestampFromNewPacket(const uint8_t* data, size_t len) {
         if (!data || len < NEW_PACKET_HEADER_SIZE) return 0;
-        return (static_cast<uint16_t>(data[IDX_TIMESTAMP_H]) << 8) |
-            data[IDX_TIMESTAMP_L];
+        // 4-byte timestamp, big-endian
+        return (static_cast<uint32_t>(data[IDX_TIMESTAMP_0]) << 24) |
+               (static_cast<uint32_t>(data[IDX_TIMESTAMP_1]) << 16) |
+               (static_cast<uint32_t>(data[IDX_TIMESTAMP_2]) << 8) |
+               static_cast<uint32_t>(data[IDX_TIMESTAMP_3]);
     }
 
-    uint16_t Parser::getSampleSeqFromNewPacket(const uint8_t* data, size_t len) {
+    uint32_t Parser::getSampleSeqFromNewPacket(const uint8_t* data, size_t len) {
         if (!data || len < NEW_PACKET_HEADER_SIZE) return 0;
-        return (static_cast<uint16_t>(data[IDX_SAMPLE_SEQ_H]) << 8) |
-            data[IDX_SAMPLE_SEQ_L];
+        // 4-byte sample sequence, big-endian
+        return (static_cast<uint32_t>(data[IDX_SAMPLE_SEQ_0]) << 24) |
+               (static_cast<uint32_t>(data[IDX_SAMPLE_SEQ_1]) << 16) |
+               (static_cast<uint32_t>(data[IDX_SAMPLE_SEQ_2]) << 8) |
+               static_cast<uint32_t>(data[IDX_SAMPLE_SEQ_3]);
     }
+
+    // ================= Data Conversion =================
+
+    /**
+     * @brief Convert 24-bit ADC raw data to signed integer
+     * @param raw 24-bit unsigned data
+     * @return Signed integer
+     */
+    static int32_t convertRawToSignedInt(uint32_t raw) {
+        // 24-bit two's complement conversion to 32-bit signed integer
+        // If MSB is 1 (negative), extend sign bit
+        if (raw > 0x7FFFFF) {
+            return static_cast<int32_t>(raw - 0x1000000);
+        }
+        return static_cast<int32_t>(raw);
+    }
+
+    /**
+     * @brief Convert signed integer to voltage value (microvolts)
+     * @param signedVal Signed integer
+     * @return Voltage value (uV)
+     */
+    static float convertToVoltageUV(int32_t signedVal) {
+        // V_lsb = (2 * V_ref) / (Gain * (2^24 - 1))
+        // V_ref = 4.5V, Gain = 1
+        // LSB = 9V / 16777215 â‰ˆ 0.53644uV
+        return static_cast<float>(signedVal) * ADS1299_LSB_UV;
+    }
+
+    // ================= Data Packet Parsing =================
 
     bool Parser::parseNewEEGPacket2Byte(
         const uint8_t* data,
@@ -139,47 +105,41 @@ namespace protocol {
         std::vector<uint8_t>& outBytes
     )
     {
-        // ÑéÖ¤Êý¾Ý°üÓÐÐ§ÐÔ
+        // Validate packet
         if (!validateNewPacket(data, len)) {
             return false;
         }
 
-        // ÌáÈ¡²ÉÑùÐòºÅ²¢µÝÔöÄÚ²¿¼ÆÊýÆ÷
-        uint16_t sampleSeq = getSampleSeqFromNewPacket(data, len);
+        // Get sample sequence
+        uint32_t sampleSeq = getSampleSeqFromNewPacket(data, len);
         sequenceID = sampleSeq;
 
-        // Ð´Èë8×Ö½ÚÐòºÅ£¨Ð¡¶Ë¸ñÊ½£©
+        // Write 8-byte sequence counter (little-endian)
         for (int i = 0; i < 8; i++) {
             outBytes.push_back(
                 static_cast<uint8_t>((sequenceID >> (i * 8)) & 0xFF)
             );
         }
 
-        // ½âÎöADCÊý¾ÝÆðÊ¼Î»ÖÃ
+        // Parse 8 channels of 24-bit ADC data
         size_t adcStart = IDX_ADC_DATA_START;
 
-        // ½âÎö8¸öÍ¨µÀµÄ24Î»ADCÊý¾Ý
         for (int ch = 0; ch < EEG_CHANNEL_COUNT; ++ch) {
             size_t offset = adcStart + ch * EEG_CHANNEL_BYTES;
 
-            // 24-bit ´ó¶Ë¸ñÊ½¶ÁÈ¡
+            // Read 24-bit big-endian
             uint32_t raw =
                 (static_cast<uint32_t>(data[offset]) << 16) |
                 (static_cast<uint32_t>(data[offset + 1]) << 8) |
                 static_cast<uint32_t>(data[offset + 2]);
 
-            // 24-bit ·ûºÅÀ©Õ¹Îª32-bit
-            if (raw & 0x800000) {
-                raw |= 0xFF000000;
-            }
-            int32_t signedVal = static_cast<int32_t>(raw);
+            // Convert 24-bit two's complement to 32-bit signed integer
+            int32_t signedVal = convertRawToSignedInt(raw);
 
-            // ×ª»»ÎªµçÑ¹Öµ£¨Î¢·ü£©
-            float value = static_cast<float>(signedVal);
-            value *= (2.0f * 4.5f / 16777215.0f);  // ADC×ªµçÑ¹
-            value *= (1000000.0f / 24.0f);         // ×ª»»ÎªÎ¢·ü²¢³ýÒÔÔöÒæ
+            // Convert to voltage (microvolts)
+            float value = convertToVoltageUV(signedVal);
 
-            // ½«float×ª»»Îª×Ö½ÚÁ÷
+            // Convert float to byte stream
             const uint8_t* p = reinterpret_cast<const uint8_t*>(&value);
             outBytes.insert(outBytes.end(), p, p + sizeof(float));
         }
@@ -193,34 +153,28 @@ namespace protocol {
         std::vector<float>& outData
     )
     {
-        // ÑéÖ¤Êý¾Ý°üÓÐÐ§ÐÔ
+        // Validate packet
         if (!validateNewPacket(data, len)) {
             return false;
         }
 
-        // ½âÎöADCÊý¾ÝÆðÊ¼Î»ÖÃ
+        // Parse 8 channels of 24-bit ADC data
         size_t adcStart = IDX_ADC_DATA_START;
 
-        // ½âÎö8¸öÍ¨µÀµÄ24Î»ADCÊý¾Ý
         for (int ch = 0; ch < EEG_CHANNEL_COUNT; ++ch) {
             size_t offset = adcStart + ch * EEG_CHANNEL_BYTES;
 
-            // 24-bit ´ó¶Ë¸ñÊ½¶ÁÈ¡
+            // Read 24-bit big-endian
             uint32_t raw =
                 (static_cast<uint32_t>(data[offset]) << 16) |
                 (static_cast<uint32_t>(data[offset + 1]) << 8) |
                 static_cast<uint32_t>(data[offset + 2]);
 
-            // 24-bit ·ûºÅÀ©Õ¹Îª32-bit
-            if (raw & 0x800000) {
-                raw |= 0xFF000000;
-            }
-            int32_t signedVal = static_cast<int32_t>(raw);
+            // Convert 24-bit two's complement to 32-bit signed integer
+            int32_t signedVal = convertRawToSignedInt(raw);
 
-            // ×ª»»ÎªµçÑ¹Öµ£¨Î¢·ü£©
-            float value = static_cast<float>(signedVal);
-            value *= (2.0f * 4.5f / 16777215.0f);  // ADC×ªµçÑ¹
-            value *= (1000000.0f / 24.0f);         // ×ª»»ÎªÎ¢·ü²¢³ýÒÔÔöÒæ
+            // Convert to voltage (microvolts)
+            float value = convertToVoltageUV(signedVal);
 
             outData.push_back(value);
         }
@@ -228,170 +182,4 @@ namespace protocol {
         return true;
     }
 
-    // ================= ¾ÉÐ­Òé¼æÈÝÊµÏÖ£¨±£³Ö²»±ä£©=================
-
-    uint8_t Parser::getPacketTypeFromRaw(const unsigned char* data, size_t len) {
-        if (data == nullptr || len < HEADER_LENGTH) return 0xFF;
-        return data[IDX_PACKET_TYPE];
-    }
-
-    uint16_t Parser::getPayloadLengthFromRaw(const unsigned char* data, size_t len) {
-        if (data == nullptr || len < 8) return 0;
-        return (static_cast<uint16_t>(data[IDX_PAYLOAD_LEN_H]) << 8) | data[IDX_PAYLOAD_LEN_L];
-    }
-
-    uint16_t Parser::getSequenceIDFromRaw(const unsigned char* data, size_t len) {
-        if (data == nullptr || len < 6) return 0;
-        return (static_cast<uint16_t>(data[IDX_SEQ_ID_H]) << 8) | data[IDX_SEQ_ID_L];
-    }
-
-    uint16_t Parser::getSequenceID() {
-        return sequenceID;
-    }
-
-    bool Parser::parseEEGPacket2Byte(
-        const uint8_t* data,
-        size_t len,
-        std::vector<uint8_t>& outBytes
-    )
-    {
-        if (!data || len < HEADER_LENGTH + EEG_PAYLOAD_SIZE) {
-            return false;
-        }
-
-        size_t payloadStart = HEADER_LENGTH;
-
-        sequenceID++;
-
-        // Ð´Èëcounter£¨´ó¶Ë£©
-        for (int i = 0; i < 8; i++) {
-            outBytes.push_back(
-                static_cast<uint8_t>((sequenceID >> (i * 8)) & 0xFF)
-            );
-        }
-
-        size_t eegStart = payloadStart + 8;
-
-        for (int ch = 0; ch < EEG_CHANNEL_COUNT; ++ch) {
-            size_t offset = eegStart + ch * EEG_CHANNEL_BYTES;
-
-            uint32_t raw =
-                (static_cast<uint32_t>(data[offset]) << 16) |
-                (static_cast<uint32_t>(data[offset + 1]) << 8) |
-                static_cast<uint32_t>(data[offset + 2]);
-
-            if (raw & 0x800000) raw |= 0xFF000000;
-            int32_t signedVal = static_cast<int32_t>(raw);
-
-            float value = static_cast<float>(signedVal);
-            value *= (2.0f * 4.5f / 16777215.0f);
-            value *= (1000000.0f / 24.0f);
-
-            const uint8_t* p = reinterpret_cast<const uint8_t*>(&value);
-            outBytes.insert(outBytes.end(), p, p + sizeof(float));
-        }
-
-        return true;
-    }
-
-    bool Parser::parseEEGPacket2Float(
-        const uint8_t* data,
-        size_t len,
-        std::vector<float>& outData
-    )
-    {
-        if (!data || len < HEADER_LENGTH + EEG_PAYLOAD_SIZE) {
-            return false;
-        }
-
-        size_t payloadStart = HEADER_LENGTH;
-        size_t eegStart = payloadStart + 8;
-
-        for (int ch = 0; ch < EEG_CHANNEL_COUNT; ++ch) {
-            size_t offset = eegStart + ch * EEG_CHANNEL_BYTES;
-
-            uint32_t raw =
-                (static_cast<uint32_t>(data[offset]) << 16) |
-                (static_cast<uint32_t>(data[offset + 1]) << 8) |
-                static_cast<uint32_t>(data[offset + 2]);
-
-            if (raw & 0x800000) raw |= 0xFF000000;
-            int32_t signedVal = static_cast<int32_t>(raw);
-
-            float value = static_cast<float>(signedVal);
-            value *= (2.0f * 4.5f / 16777215.0f);
-            value *= (1000000.0f / 24.0f);
-
-            outData.push_back(value);
-        }
-
-        return true;
-    }
-
-    bool Parser::parseEEGPacketToBuffer(
-        const unsigned char* recvData, size_t dataLen, vector<vector<float>>* buffer)
-    {
-        if (recvData == nullptr || buffer == nullptr) return false;
-
-        size_t payloadStart = 6;
-
-        if (dataLen < payloadStart + EEG_PAYLOAD_SIZE) return false;
-
-        vector<float> floatBuffer;
-        floatBuffer.reserve(EEG_CHANNEL_COUNT);
-
-        for (int ch = 0; ch < EEG_CHANNEL_COUNT; ++ch) {
-            size_t offset = payloadStart + ch * EEG_CHANNEL_BYTES;
-
-            uint32_t raw = ((uint32_t)recvData[offset] << 16) |
-                ((uint32_t)recvData[offset + 1] << 8) |
-                ((uint32_t)recvData[offset + 2]);
-
-            if (raw & 0x800000) raw |= 0xFF000000;
-
-            int32_t signedVal = static_cast<int32_t>(raw);
-
-            float value = static_cast<float>(signedVal);
-            value *= (2.0f * 4.5f / 16777215.0f);
-            value *= (1000.0f * 1000.0f / 24.0f);
-
-            floatBuffer.push_back(value);
-        }
-
-        buffer->push_back(floatBuffer);
-        return true;
-    }
-
-    bool Parser::parseImpedancePacketToBuffer(
-        const unsigned char* recvData, size_t dataLen,
-        std::vector<std::vector<float>>* buffer)
-    {
-        if (recvData == nullptr || buffer == nullptr) return false;
-
-        size_t payloadStart = 8;
-
-        if (dataLen < payloadStart + IMPEDANCE_PAYLOAD_SIZE) return false;
-
-        vector<float> floatBuffer;
-        floatBuffer.reserve(IMPEDANCE_CHANNEL_COUNT);
-
-        for (int ch = 0; ch < IMPEDANCE_CHANNEL_COUNT; ++ch) {
-            size_t offset = payloadStart + ch * IMPEDANCE_CHANNEL_BYTES;
-
-            uint32_t raw = ((uint32_t)recvData[offset] << 16) |
-                ((uint32_t)recvData[offset + 1] << 8) |
-                ((uint32_t)recvData[offset + 2]);
-
-            if (raw & 0x800000) raw |= 0xFF000000;
-            int32_t signedVal = static_cast<int32_t>(raw);
-
-            float value = static_cast<float>(signedVal);
-
-            floatBuffer.push_back(value);
-        }
-
-        buffer->push_back(floatBuffer);
-        return true;
-    }
-
-}
+} // namespace protocol

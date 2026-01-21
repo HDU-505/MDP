@@ -1,14 +1,12 @@
 # include "PropertyUtil.h"
+# include "HardwareConfig.h"
 
 t_VersionNumber apiVer = { 3, 2, 0, 0 };
 t_VersionNumber libraryVer = { 1, 22, 2, 28 };
 
-float baseSampleRate = 125.0f;
-float subSampleDivisor = 1.0f;
-
 BleDeviceManager* device;
 
-// 设置数值类型属性
+// Helper functions for setting property values
 template <typename T>
 static int SetVal(void* dest, uint32_t destSize, const T& val) {
 	if (destSize < sizeof(T)) return AMP_ERR_PARAM;
@@ -17,14 +15,12 @@ static int SetVal(void* dest, uint32_t destSize, const T& val) {
 	return AMP_OK;
 }
 
-// 设置字符串属性
 static int SetStr(void* dest, uint32_t destSize, const char* val) {
 	if (!dest || destSize == 0) return AMP_ERR_PARAM;
 	strncpy_s((char*)dest, destSize, val, _TRUNCATE);
 	return AMP_OK;
 }
 
-// 设置最小/最大值范围
 template <typename T>
 static int SetRangeMinMax(void* dest, uint32_t* destSize, t_PropertyRangeType* type, T min, T max) {
 	if (*destSize < 2 * sizeof(T)) return AMP_ERR_BUFFERSIZE;
@@ -36,120 +32,129 @@ static int SetRangeMinMax(void* dest, uint32_t* destSize, t_PropertyRangeType* t
 	return AMP_OK;
 }
 
-//设置离散值列表
 template <typename T>
 static int SetRangeDiscrete(void* dest, uint32_t* destSize, t_PropertyRangeType* type, const std::vector<T>& values) {
 	size_t requiredSize = values.size() * sizeof(T);
 
-	// 检查缓冲区是否足够
 	if (*destSize < requiredSize) {
 		return AMP_ERR_BUFFERSIZE;
 	}
 
-	// 复制数据
 	T* arr = (T*)dest;
 	for (size_t i = 0; i < values.size(); ++i) {
 		arr[i] = values[i];
 	}
 
 	*destSize = (uint32_t)requiredSize;
-	*type = RT_DISCRETE; // 设置类型为离散值
+	*type = RT_DISCRETE;
 	return AMP_OK;
 }
 
-// 获取设备属性
+// Get device properties
 int GetDeviceProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByteSize) {
 	switch (PropertyID) {
-		// 字符串类型
-		case DPROP_CHR_Family:
-			return SetVal(PropertyValue, ValueByteSize, "0");
-		case DPROP_CHR_Type:
-			return SetStr(PropertyValue, ValueByteSize, "Mindtooth");
-		case DPROP_CHR_Interface:
-			return SetStr(PropertyValue, ValueByteSize, "BT");
-		case DPROP_CHR_Address:
-			return SetStr(PropertyValue, ValueByteSize, "00: 00 : 00 : 00 : 00 : 00");
-		case DPROP_CHR_SerialNumber:
-			return SetStr(PropertyValue, ValueByteSize, "00001");
-		case DPROP_CHR_FlashWorkspaceDescription:
-		case DPROP_CHR_FlashFileName:
-			//return SetStr(PropertyValue, ValueByteSize, "Default");
-			return AMP_ERR_VERSION;
+		// String properties
+	case DPROP_CHR_Family:
+		return SetVal(PropertyValue, ValueByteSize, "0");
+	case DPROP_CHR_Type:
+	{
+		// Get device type from hardware config (parsed from BLE name)
+		std::string deviceType = g_HardwareConfig.GetDeviceType();
+		return SetStr(PropertyValue, ValueByteSize, deviceType.c_str());
+	}
+	case DPROP_CHR_Interface:
+		return SetStr(PropertyValue, ValueByteSize, "BT");
+	case DPROP_CHR_Address:
+	{
+		// Get MAC address from hardware config (from BLE device)
+		std::string deviceAddr = g_HardwareConfig.GetDeviceAddress();
+		return SetStr(PropertyValue, ValueByteSize, deviceAddr.c_str());
+	}
+	case DPROP_CHR_SerialNumber:
+	{
+		// Get serial number from hardware config (parsed from BLE name)
+		std::string serialNum = g_HardwareConfig.GetDeviceSerialNumber();
+		return SetStr(PropertyValue, ValueByteSize, serialNum.c_str());
+	}
+	case DPROP_CHR_FlashWorkspaceDescription:
+	case DPROP_CHR_FlashFileName:
+		return AMP_ERR_VERSION;
 
-		// 版本号类型
+		// Version properties
 		case DPROP_TVN_HardwareRevision:
 		case DPROP_TVN_FirmwareVersion:
 			return SetVal(PropertyValue, ValueByteSize, apiVer);
 		case DPROP_TVN_DriverVersion:
 			return SetVal(PropertyValue, ValueByteSize, libraryVer);
 
-
-		// Int32 / Bool32 类型
+		// Int32 properties
 		case DPROP_I32_AvailableModules:
 			return SetVal(PropertyValue, ValueByteSize, (int32_t)1);
 		case DPROP_I32_AvailableChannels:
 			return SetVal(PropertyValue, ValueByteSize, (int32_t)8);
 		case DPROP_I32_BatteryLevel:
-			//return SetVal(PropertyValue, ValueByteSize, (int32_t)BS_UNKNOWN);
-		case DPROP_I32_ConnectionState:
-			//return SetVal(PropertyValue, ValueByteSize, (int32_t)CS_DISCONNECTED);
-		case DPROP_I32_SignalQuality:
-			//return SetVal(PropertyValue, ValueByteSize, (int32_t)SQ_NOINFO);
-		case DPROP_I32_RecordingState:
+			return SetVal(PropertyValue, ValueByteSize, g_HardwareConfig.batteryLevel);
 		case DPROP_I32_RecordingMode:
 			return SetVal(PropertyValue, ValueByteSize, (int32_t)device->recordingMode);
+		case DPROP_I32_SignalQuality:
+			return SetVal(PropertyValue, ValueByteSize, g_HardwareConfig.signalQuality);
 		case DPROP_I32_SignalStrength:
+			return SetVal(PropertyValue, ValueByteSize, g_HardwareConfig.signalStrength);
 		case DPROP_I32_GoodImpedanceLevel:
+			return SetVal(PropertyValue, ValueByteSize, g_HardwareConfig.goodImpedanceLevel);
 		case DPROP_I32_BadImpedanceLevel:
+			return SetVal(PropertyValue, ValueByteSize, g_HardwareConfig.badImpedanceLevel);
+		case DPROP_B32_ContinuousImpedance:
+			return SetVal(PropertyValue, ValueByteSize, (int32_t)g_HardwareConfig.continuousImpedance);
 		case DPROP_I32_LedControl:
+			return SetVal(PropertyValue, ValueByteSize, g_HardwareConfig.ledControl);
+		case DPROP_I32_ConnectionState:
+		case DPROP_I32_RecordingState:
 		case DPROP_I32_ActiveShieldGain:
 		case DPROP_B32_FastDataAccess:
-		case DPROP_B32_ContinuousImpedance:
 		case DPROP_B32_FlashFormatting:
-			//return SetVal(PropertyValue, ValueByteSize, (int32_t)0);
 			return AMP_ERR_VERSION;
 
-		// UInt32 类型
+		// UInt32 properties
 		case DPROP_UI32_FlashSegmentSize:
-			//return SetVal(PropertyValue, ValueByteSize, (uint32_t)2047);
 		case DPROP_UI32_ErrorFlags:
 		case DPROP_UI32_FlashRecordingState:
 		case DPROP_UI32_FlashFreeSpace:
 		case DPROP_UI32_FlashFileSize:
-			//return SetVal(PropertyValue, ValueByteSize, (uint32_t)0);
 			return AMP_ERR_VERSION;
 
-		// Float32 类型
+		// Float32 properties
 		case DPROP_F32_BaseSampleRate:
-			return SetVal(PropertyValue, ValueByteSize, baseSampleRate);
+			return SetVal(PropertyValue, ValueByteSize, g_HardwareConfig.GetSampleRate());
 		case DPROP_F32_BatteryVoltage:
+			return SetVal(PropertyValue, ValueByteSize, g_HardwareConfig.batteryVoltage);
 		case DPROP_F32_SubSampleDivisor:
-			return SetVal(PropertyValue, ValueByteSize, subSampleDivisor);
-			return AMP_ERR_VERSION;
+			return SetVal(PropertyValue, ValueByteSize, g_HardwareConfig.subSampleDivisor);
 
 		default:
 			return AMP_ERR_PARAM;
 	}
 }
 
-// 获取模块属性
+// Get module properties
 int GetModuleProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByteSize) {
 	switch (PropertyID) {
-		// 字符串类型
+		// String properties
 		case MPROP_CHR_Type:
 			return SetStr(PropertyValue, ValueByteSize, "Module_MT");
 		case MPROP_CHR_SerialNumber:
 			return SetStr(PropertyValue, ValueByteSize, "000");
 
-		// 版本号类型
+		// Version properties
 		case MPROP_TVN_HardwareRevision:
 		case MPROP_TVN_FirmwareVersion:
 			return SetVal(PropertyValue, ValueByteSize, apiVer);
 
-		// Int32 / Bool32 类型
+		// Int32 properties
 		case MPROP_I32_UseableChannels:
 			return SetVal(PropertyValue, ValueByteSize, (int32_t)8);
 		case MPROP_B32_ImpedanceMeasurement:
+			return SetVal(PropertyValue, ValueByteSize, (int32_t)1);
 		case MPROP_I32_TriggerOutMode:
 		case MPROP_I32_TriggerSyncPin:
 		case MPROP_I32_TriggerSyncPeriod:
@@ -158,7 +163,6 @@ int GetModuleProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByt
 		case MPROP_I32_LedColorGND:
 		case MPROP_I32_UserButtonState:
 		case MPROP_I32_UserButtonLed:
-			//return SetVal(PropertyValue, ValueByteSize, (int32_t)0);
 			return AMP_ERR_VERSION;
 
 		default:
@@ -166,19 +170,18 @@ int GetModuleProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByt
 	}
 }
 
-// 获取通道属性
+// Get channel properties
 int GetChannelProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByteSize, uint32_t Index) {
 	switch (PropertyID) {
-		// 字符串类型
+		// String properties
 		case CPROP_CHR_Function:
 		case CPROP_CHR_Unit:
-			//return AMP_ERR_VERSION; //这里必须返回一个字符串类型，不能返回AMP_ERR_VERSION，好像DisplayAmpInfo在open的时候会调用这里
 			return SetStr(PropertyValue, ValueByteSize, "");
 
 		case CPROP_I32_ChannelName: 
 			return SetVal(PropertyValue, ValueByteSize, (int32_t)10);
 
-		// Int32 / Bool32 类型
+		// Int32 properties
 		case CPROP_I32_Type:
 			return SetVal(PropertyValue, ValueByteSize, (int32_t)CT_EEG);
 		case CPROP_I32_ChannelNumber:
@@ -187,59 +190,80 @@ int GetChannelProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueBy
 			return SetVal(PropertyValue, ValueByteSize, (int32_t)0);
 		case CPROP_I32_Electrode:
 		case CPROP_I32_DataType:
-			return SetVal(PropertyValue, ValueByteSize,(int32_t)6);
+			return SetVal(PropertyValue, ValueByteSize, (int32_t)6);
 		case CPROP_I32_LedColor:
+			return SetVal(PropertyValue, ValueByteSize, (int32_t)0);
 		case CPROP_B32_ReferenceChannel:
 		case CPROP_B32_ImpedanceMeasurement:
-		case CPROP_B32_RecordingEnabled:
-			return SetVal(PropertyValue, ValueByteSize, (int32_t)1);
+		case CPROP_B32_RecordingEnabled: {
+			auto config = g_HardwareConfig.GetChannelConfig(Index);
+			return SetVal(PropertyValue, ValueByteSize, (int32_t)(config.enabled ? 1 : 0));
+		}
 
-		// UInt32 类型
+		// UInt32 properties
 		case CPROP_UI32_OutputValue:
 			return SetVal(PropertyValue, ValueByteSize, (uint32_t)0);
 
-		// Float32 类型
+		// Float32 properties
 		case CPROP_F32_Resolution:
 			return SetVal(PropertyValue, ValueByteSize, (float)1);
-		case CPROP_F32_Gain:
-		case CPROP_F32_HighPass:
-		case CPROP_F32_LowPass:
-		case CPROP_F32_NotchFilter:
-			//return SetVal(PropertyValue, ValueByteSize, 0.0f);
-			return AMP_ERR_VERSION;
+		case CPROP_F32_Gain: {
+			auto config = g_HardwareConfig.GetChannelConfig(Index);
+			return SetVal(PropertyValue, ValueByteSize, config.gain);
+		}
+		case CPROP_F32_HighPass: {
+			auto config = g_HardwareConfig.GetChannelConfig(Index);
+			return SetVal(PropertyValue, ValueByteSize, config.highPassHz);
+		}
+		case CPROP_F32_LowPass: {
+			auto config = g_HardwareConfig.GetChannelConfig(Index);
+			return SetVal(PropertyValue, ValueByteSize, config.lowPassHz);
+		}
+		case CPROP_F32_NotchFilter: {
+			auto config = g_HardwareConfig.GetChannelConfig(Index);
+			return SetVal(PropertyValue, ValueByteSize, config.notchHz);
+		}
 
 		default:
 			return AMP_ERR_PARAM;
 	}
 }
 
-// 设置设备属性
+// Set device properties
 int SetDeviceProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByteSize) {
 	switch (PropertyID) {
-		// 可写属性
+		// Writable properties
 		case DPROP_F32_BaseSampleRate: {
-			// TODO: 修改硬件的采样率，这里用一个全局变量表示
+			// Set sampling rate (will take effect when hardware command is implemented)
 			if (ValueByteSize < sizeof(float))
 				return AMP_ERR_PARAM;
-			memcpy(&baseSampleRate, PropertyValue, sizeof(float));
-			return AMP_OK;
+			float rate;
+			memcpy(&rate, PropertyValue, sizeof(float));
+			if (g_HardwareConfig.SetSampleRate(rate)) {
+				// TODO: Send command to hardware to set sample rate
+				// vector<uint8_t> cmd = buildSetSampleRateCommand(rate);
+				// device->sendCommand(cmd);
+				return AMP_OK;
+			}
+			return AMP_ERR_PARAM;
 		}
 		case DPROP_F32_SubSampleDivisor: {
-			// TODO: 修改硬件的采样率，这里用一个全局变量表示
+			// Set sub-sample divisor (will take effect when hardware command is implemented)
 			if (ValueByteSize < sizeof(float))
 				return AMP_ERR_PARAM;
-			memcpy(&subSampleDivisor, PropertyValue, sizeof(float));
+			memcpy(&g_HardwareConfig.subSampleDivisor, PropertyValue, sizeof(float));
+			// TODO: Send command to hardware to set sub-sample divisor
 			return AMP_OK;
 		}
 		case DPROP_I32_RecordingMode: {
-
+			// Set recording mode
 			memcpy(&device->recordingMode, PropertyValue, sizeof(int));
-			// 往硬件发送指令
-
+			// TODO: Send command to hardware to switch mode
+			// Command is handled in BleDeviceManager::startAcquisition
 			return AMP_OK;
 		}
 
-		// 只读属性
+		// Read-only properties
 		case DPROP_CHR_Family:
 		case DPROP_CHR_Type:
 		case DPROP_CHR_Interface:
@@ -257,8 +281,6 @@ int SetDeviceProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByt
 		case DPROP_UI32_ErrorFlags:
 		case DPROP_I32_RecordingState:
 		case DPROP_I32_SignalStrength:
-		
-
 		case DPROP_I32_GoodImpedanceLevel:
 		case DPROP_I32_BadImpedanceLevel:
 		case DPROP_I32_LedControl:
@@ -279,14 +301,13 @@ int SetDeviceProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByt
 	}
 }
 
-// 设置模块属性
+// Set module properties
 int SetModuleProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByteSize) {
 	switch (PropertyID) {
-		// 可写属性
-			// TODO: 保存属性值
-			//return AMP_OK;
+		// Writable properties
+		// TODO: Add writable module properties when needed
 
-		// 只读属性
+		// Read-only properties
 		case MPROP_CHR_Type:
 		case MPROP_CHR_SerialNumber:
 		case MPROP_TVN_HardwareRevision:
@@ -308,14 +329,64 @@ int SetModuleProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByt
 	}
 }
 
-// 设置通道属性
+// Set channel properties
 int SetChannelProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByteSize, uint32_t Index) {
 	switch (PropertyID) {
-		// 可写属性
-			// TODO: 保存属性值
-			//return AMP_OK;
+		// Writable properties
+		case CPROP_F32_Gain: {
+			// Set channel gain (will take effect when hardware command is implemented)
+			if (ValueByteSize < sizeof(float) || Index >= 8)
+				return AMP_ERR_PARAM;
+			auto config = g_HardwareConfig.GetChannelConfig(Index);
+			memcpy(&config.gain, PropertyValue, sizeof(float));
+			g_HardwareConfig.SetChannelConfig(Index, config);
+			// TODO: Send command to hardware to set channel gain
+			return AMP_OK;
+		}
+		case CPROP_F32_HighPass: {
+			// Set high-pass filter (will take effect when hardware command is implemented)
+			if (ValueByteSize < sizeof(float) || Index >= 8)
+				return AMP_ERR_PARAM;
+			auto config = g_HardwareConfig.GetChannelConfig(Index);
+			memcpy(&config.highPassHz, PropertyValue, sizeof(float));
+			g_HardwareConfig.SetChannelConfig(Index, config);
+			// TODO: Send command to hardware to set high-pass filter
+			return AMP_OK;
+		}
+		case CPROP_F32_LowPass: {
+			// Set low-pass filter (will take effect when hardware command is implemented)
+			if (ValueByteSize < sizeof(float) || Index >= 8)
+				return AMP_ERR_PARAM;
+			auto config = g_HardwareConfig.GetChannelConfig(Index);
+			memcpy(&config.lowPassHz, PropertyValue, sizeof(float));
+			g_HardwareConfig.SetChannelConfig(Index, config);
+			// TODO: Send command to hardware to set low-pass filter
+			return AMP_OK;
+		}
+		case CPROP_F32_NotchFilter: {
+			// Set notch filter (will take effect when hardware command is implemented)
+			if (ValueByteSize < sizeof(float) || Index >= 8)
+				return AMP_ERR_PARAM;
+			auto config = g_HardwareConfig.GetChannelConfig(Index);
+			memcpy(&config.notchHz, PropertyValue, sizeof(float));
+			g_HardwareConfig.SetChannelConfig(Index, config);
+			// TODO: Send command to hardware to set notch filter
+			return AMP_OK;
+		}
+		case CPROP_B32_RecordingEnabled: {
+			// Set channel enable (will take effect when hardware command is implemented)
+			if (ValueByteSize < sizeof(int32_t) || Index >= 8)
+				return AMP_ERR_PARAM;
+			auto config = g_HardwareConfig.GetChannelConfig(Index);
+			int32_t enabled;
+			memcpy(&enabled, PropertyValue, sizeof(int32_t));
+			config.enabled = (enabled != 0);
+			g_HardwareConfig.SetChannelConfig(Index, config);
+			// TODO: Send command to hardware to set channel enable
+			return AMP_OK;
+		}
 
-		// 只读属性
+		// Read-only properties
 		case CPROP_I32_Type:
 		case CPROP_I32_ChannelNumber:
 		case CPROP_I32_ModuleNumber:
@@ -324,13 +395,8 @@ int SetChannelProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueBy
 		case CPROP_I32_DataType:
 		case CPROP_F32_Resolution:
 		case CPROP_CHR_Unit:
-		case CPROP_F32_Gain:
-		case CPROP_F32_HighPass:
-		case CPROP_F32_LowPass:
-		case CPROP_F32_NotchFilter:
 		case CPROP_B32_ReferenceChannel:
 		case CPROP_B32_ImpedanceMeasurement:
-		case CPROP_B32_RecordingEnabled:
 		case CPROP_I32_LedColor:
 		case CPROP_UI32_OutputValue:
 		case CPROP_I32_ChannelName:
@@ -341,26 +407,25 @@ int SetChannelProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueBy
 	}
 }
 
-// 获取设备属性范围
-int GetDevicePropertyRange(int32_t PropertyID, void* RangeArray, uint32_t * ArrayByteSize, t_PropertyRangeType * RangeType) {
-	*RangeType = RT_READONLY; // 可写属性在SetRangeMinMax会改变RangeType，其余属性全为只读
+// Get device property range
+int GetDevicePropertyRange(int32_t PropertyID, void* RangeArray, uint32_t* ArrayByteSize, t_PropertyRangeType* RangeType) {
+	*RangeType = RT_READONLY;
 
 	switch (PropertyID) {
 	case DPROP_I32_RecordingMode:
 		return SetRangeMinMax(RangeArray, ArrayByteSize, RangeType, (int32_t)RM_STOPPED, (int32_t)RM_TEST);
 	case DPROP_F32_BaseSampleRate:
-		return SetRangeDiscrete(RangeArray, ArrayByteSize, RangeType, std::vector<float>{125.0f, 256.0f, 512.0f});
+		return SetRangeDiscrete(RangeArray, ArrayByteSize, RangeType, std::vector<float>{125.0f, 250.0f, 500.0f});
 	case DPROP_F32_SubSampleDivisor:
 		return SetRangeDiscrete(RangeArray, ArrayByteSize, RangeType, std::vector<float>{1.0f, 2.0f});
 
 	default:
-		// 其他属性暂时默认为只读
 		return AMP_OK;
 	}
 }
 
-// 获取模块属性范围
-int GetModulePropertyRange(int32_t PropertyID, void* RangeArray, uint32_t * ArrayByteSize, t_PropertyRangeType * RangeType) {
+// Get module property range
+int GetModulePropertyRange(int32_t PropertyID, void* RangeArray, uint32_t* ArrayByteSize, t_PropertyRangeType* RangeType) {
 	*RangeType = RT_READONLY;
 
 	switch (PropertyID) {
@@ -370,14 +435,14 @@ int GetModulePropertyRange(int32_t PropertyID, void* RangeArray, uint32_t * Arra
 	case MPROP_I32_LedColorGND:
 		return SetRangeMinMax(RangeArray, ArrayByteSize, RangeType, (int32_t)LED_OFF, (int32_t)LED_YELLOW);
 	case MPROP_I32_UserButtonLed:
-		return SetRangeMinMax(RangeArray, ArrayByteSize, RangeType, (int32_t)100, (int32_t)2000); // 0.1 - 2s
+		return SetRangeMinMax(RangeArray, ArrayByteSize, RangeType, (int32_t)100, (int32_t)2000);
 	default:
 		return AMP_OK;
 	}
 }
 
-// 获取通道属性范围
-int GetChannelPropertyRange(int32_t PropertyID, void* RangeArray, uint32_t * ArrayByteSize, t_PropertyRangeType * RangeType, uint32_t Index) {
+// Get channel property range
+int GetChannelPropertyRange(int32_t PropertyID, void* RangeArray, uint32_t* ArrayByteSize, t_PropertyRangeType* RangeType, uint32_t Index) {
 	*RangeType = RT_READONLY;
 
 	switch (PropertyID) {
@@ -386,6 +451,11 @@ int GetChannelPropertyRange(int32_t PropertyID, void* RangeArray, uint32_t * Arr
 	case CPROP_I32_LedColor:
 		return SetRangeMinMax(RangeArray, ArrayByteSize, RangeType, (int32_t)LED_OFF, (int32_t)LED_YELLOW);
 	case CPROP_F32_Gain:
+		// ADS1299 supports gains: 1, 2, 4, 6, 8, 12, 24
+		return SetRangeDiscrete(RangeArray, ArrayByteSize, RangeType, std::vector<float>{1.0f, 2.0f, 4.0f, 6.0f, 8.0f, 12.0f, 24.0f});
+	case CPROP_F32_HighPass:
+	case CPROP_F32_LowPass:
+	case CPROP_F32_NotchFilter:
 		return SetRangeMinMax(RangeArray, ArrayByteSize, RangeType, 0.0f, 100.0f);
 	default:
 		return AMP_OK;

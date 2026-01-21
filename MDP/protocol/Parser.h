@@ -7,77 +7,51 @@
 namespace protocol {
 
     /**
-     * @brief 协议解析器类
+     * @brief Protocol Parser Class
      *
-     * 负责构建控制指令包和解析数据包
-     * 新版本支持两种协议格式：
-     * 1. 旧协议：用于控制指令（0xAE12开头）
-     * 2. 新协议：用于EEG数据流（0x0210开头，0xAE12结尾）
+     * Responsible for building control command packets and parsing data packets.
+     * New protocol format:
+     * - Commands: AE 12 02 XX (4 bytes)
+     * - Data packets: 02 10/11 (header 2) + timestamp(4) + sequence(4) + ADC(24) + AE 12 (tail 2) = 36 bytes
      */
     class Parser {
     private:
-        uint16_t sequenceID = 0; // 序列计数器
+        uint32_t sequenceID = 0; // Sequence counter (32-bit)
 
     public:
-        // ================= 控制指令构建（使用旧协议格式）=================
+        // ================= Control Command Building =================
 
         /**
-         * @brief 构建控制指令包（旧协议格式）
-         * @param packetType 包类型
-         * @return 指令数据包
+         * @brief Build control command packet
+         * Command format: AE 12 02 XX
+         * - 0x10: Normal EEG data mode
+         * - 0x11: AC impedance mode
+         * - 0x12: Stop acquisition
+         * @param packetType Packet type
+         * @return Command packet data (4 bytes)
          */
         std::vector<uint8_t> buildControlPacket(PacketType packetType);
 
-        /**
-         * @brief 构建配置指令包
-         * @param packetType 包类型
-         * @param value 配置值
-         * @return 指令数据包
-         */
-        std::vector<uint8_t> buildConfigPacket(PacketType packetType, uint16_t value);
+        // ================= Data Packet Parsing =================
 
         /**
-         * @brief 构建流控制指令包
-         * @param packetType 包类型
-         * @param streamMask 流掩码
-         * @return 指令数据包
-         */
-        std::vector<uint8_t> buildStreamControlPacket(PacketType packetType, StreamMask streamMask);
-
-        /**
-         * @brief 构建响应包
-         * @param responseCode 响应码
-         * @return 响应数据包
-         */
-        std::vector<uint8_t> buildResponsePacket(ResponseCode responseCode);
-
-        /**
-         * @brief 解析响应包
-         * @param data 响应数据
-         * @return 响应码
-         */
-        ResponseCode parseResponse(const std::vector<uint8_t>& data);
-
-        // ================= 新协议EEG数据解析接口 =================
-
-        /**
-         * @brief 解析新协议EEG数据包并转换为字节流格式
+         * @brief Parse new protocol EEG data packet and convert to byte stream
          *
-         * 新协议格式：
-         * - 头标记：0x02 0x10 (2字节)
-         * - 时间戳：16位 (2字节)
-         * - 采样序号：16位 (2字节)
-         * - ADC数据：24位×8通道 (24字节)
-         * - 尾标记：0xAE 0x12 (2字节)
+         * Packet format (36 bytes total):
+         * - Header marker: 0x02 0x10/0x11 (2 bytes)
+         * - Timestamp: 32-bit (4 bytes, big-endian)
+         * - Sample sequence: 32-bit (4 bytes, big-endian)
+         * - ADC data: 24-bit 脳 8 channels (24 bytes, big-endian)
+         * - Tail marker: 0xAE 0x12 (2 bytes)
          *
-         * 输出格式：
-         * - 序号：8字节（uint64_t）
-         * - 通道数据：每通道4字节float × 8通道
+         * Output format (40 bytes per sample):
+         * - Sequence counter: 8 bytes (uint64_t, little-endian)
+         * - Channel data: 4 bytes float 脳 8 channels (voltage in uV)
          *
-         * @param data 原始数据包指针
-         * @param len 数据包长度（应为32字节）
-         * @param outBytes 输出字节流（序号+转换后的浮点数据）
-         * @return 解析是否成功
+         * @param data Raw packet pointer
+         * @param len Packet length (must be 36 bytes)
+         * @param outBytes Output byte stream (sequence + converted float data)
+         * @return true if parsing succeeds
          */
         bool parseNewEEGPacket2Byte(
             const uint8_t* data,
@@ -86,12 +60,12 @@ namespace protocol {
         );
 
         /**
-         * @brief 解析新协议EEG数据包并转换为浮点数组
+         * @brief Parse new protocol EEG data packet and convert to float array
          *
-         * @param data 原始数据包指针
-         * @param len 数据包长度（应为32字节）
-         * @param outData 输出浮点数组（每通道一个float值）
-         * @return 解析是否成功
+         * @param data Raw packet pointer
+         * @param len Packet length (must be 36 bytes)
+         * @param outData Output float array (8 channels, voltage in uV)
+         * @return true if parsing succeeds
          */
         bool parseNewEEGPacket2Float(
             const uint8_t* data,
@@ -100,88 +74,34 @@ namespace protocol {
         );
 
         /**
-         * @brief 从新协议包中提取时间戳
-         * @param data 数据包指针
-         * @param len 数据长度
-         * @return 时间戳值（16位）
+         * @brief Extract timestamp from packet
+         * @param data Packet pointer
+         * @param len Data length
+         * @return Timestamp value (32-bit)
          */
-        uint16_t getTimestampFromNewPacket(const uint8_t* data, size_t len);
+        uint32_t getTimestampFromNewPacket(const uint8_t* data, size_t len);
 
         /**
-         * @brief 从新协议包中提取采样序号
-         * @param data 数据包指针
-         * @param len 数据长度
-         * @return 采样序号（16位）
+         * @brief Extract sample sequence from packet
+         * @param data Packet pointer
+         * @param len Data length
+         * @return Sample sequence (32-bit)
          */
-        uint16_t getSampleSeqFromNewPacket(const uint8_t* data, size_t len);
+        uint32_t getSampleSeqFromNewPacket(const uint8_t* data, size_t len);
 
         /**
-         * @brief 验证新协议包的完整性（头尾标记验证）
-         * @param data 数据包指针
-         * @param len 数据长度
-         * @return 是否有效
+         * @brief Validate packet integrity (header/tail markers)
+         * @param data Packet pointer
+         * @param len Data length
+         * @return true if valid
          */
         bool validateNewPacket(const uint8_t* data, size_t len);
 
-        // ================= 旧协议兼容接口（保留）=================
-
         /**
-         * @brief 解析旧协议EEG数据包并转换为字节流格式（兼容旧版本）
+         * @brief Get current sequence ID
+         * @return Sequence ID
          */
-        bool parseEEGPacket2Byte(
-            const uint8_t* data,
-            size_t len,
-            std::vector<uint8_t>& outBytes
-        );
-
-        /**
-         * @brief 解析旧协议EEG数据包并转换为浮点数组（兼容旧版本）
-         */
-        bool parseEEGPacket2Float(
-            const uint8_t* data,
-            size_t len,
-            std::vector<float>& outData
-        );
-
-        /**
-         * @brief 解析EEG数据包到缓冲区
-         */
-        bool parseEEGPacketToBuffer(
-            const unsigned char* recvData,
-            size_t dataLen,
-            std::vector<std::vector<float>>* buffer
-        );
-
-        /**
-         * @brief 解析阻抗数据包到缓冲区
-         */
-        bool parseImpedancePacketToBuffer(
-            const unsigned char* recvData,
-            size_t dataLen,
-            std::vector<std::vector<float>>* buffer
-        );
-
-        // ================= 通用工具方法 =================
-
-        /**
-         * @brief 从原始数据中获取包类型
-         */
-        uint8_t getPacketTypeFromRaw(const unsigned char* data, size_t len);
-
-        /**
-         * @brief 从原始数据中获取载荷长度（旧协议）
-         */
-        uint16_t getPayloadLengthFromRaw(const unsigned char* data, size_t len);
-
-        /**
-         * @brief 从原始数据中获取序列ID（旧协议）
-         */
-        uint16_t getSequenceIDFromRaw(const unsigned char* data, size_t len);
-
-        /**
-         * @brief 获取当前序列ID
-         */
-        uint16_t getSequenceID();
+        uint32_t getSequenceID() { return sequenceID; }
     };
 
 } // namespace protocol

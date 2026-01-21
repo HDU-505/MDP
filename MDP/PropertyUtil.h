@@ -1,7 +1,7 @@
 #pragma once
 # include "Amplifier_LIB.h"
 # include <vector>
-# include "BleDeviceManager.h"
+# include "bt/BleDeviceManager.h"
 
 
 // 获取设备属性
