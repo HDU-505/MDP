@@ -75,7 +75,7 @@ void MtConnectionBleDeviceStatusCallBack(HANDLE handle, const char* PenMac, bool
  ///          ????? = ???
  ///          ?????? = ????</param>
  /// <returns>???????</returns>
-int GetAPIVersion(t_VersionNumber* pAPIVersion) {
+AMPAPI GetAPIVersion(t_VersionNumber* pAPIVersion) {
 	pAPIVersion->Major = AP_MAJOR;
 	pAPIVersion->Minor = AP_MINOR;
 	pAPIVersion->Build = AP_BUILD;
@@ -90,7 +90,8 @@ int GetAPIVersion(t_VersionNumber* pAPIVersion) {
 ///          ????? = ???????
 ///          ?????? = ????</param>
 /// <returns>???????</returns>
-int GetLibraryVersion(t_VersionNumber* pLibraryVersion) {
+AMPAPI GetLibraryVersion(t_VersionNumber* pLibraryVersion) {
+
 	pLibraryVersion->Major = LIB_MAJOR;
 	pLibraryVersion->Minor = LIB_MINOR;
 	pLibraryVersion->Build = LIB_BUILD;
@@ -106,7 +107,8 @@ int GetLibraryVersion(t_VersionNumber* pLibraryVersion) {
 /// <param name="DeviceAddress">    ?????????</param>
 /// <param name="flags">            ???????</param>
 /// <returns>    ??????????</returns>
-int ampEnumerateDevices(char* HWI, int32_t HWISize, const char* DeviceAddress, uint32_t flags) {
+AMPAPI ampEnumerateDevices(char* HWI, int32_t HWISize, const char* DeviceAddress, uint32_t flags) {
+
 	if (!HWI || HWISize <= 0) {
 		return AMP_ERR_PARAM;
 	}
@@ -140,7 +142,8 @@ int ampEnumerateDevices(char* HWI, int32_t HWISize, const char* DeviceAddress, u
 /// <param name="DeviceAddress">    ???????????</param>
 /// <param name="BufferSize">       ?????????</param>
 /// <returns>    . </returns>
-int ampGetDeviceAddress(int32_t DeviceNr, char* DeviceAddress, int32_t BufferSize) {
+AMPAPI ampGetDeviceAddress(int32_t DeviceNr, char* DeviceAddress, int32_t BufferSize) {
+
 	if (!DeviceAddress || BufferSize <= 0) return AMP_ERR_PARAM;
 	if (DeviceNr != 0) return AMP_ERR_NODEVICE;
 	strncpy_s(DeviceAddress, BufferSize, "FAKE_BT_DEVICE_0", _TRUNCATE);
@@ -151,7 +154,7 @@ int ampGetDeviceAddress(int32_t DeviceNr, char* DeviceAddress, int32_t BufferSiz
 /// <param name="DeviceNr">         ??0??????????</param>
 /// <param name="DeviceHandle">     ?????????</param>
 /// <returns>    . </returns>
-int ampOpenDevice(int32_t DeviceNr, HANDLE* DeviceHandle) {
+AMPAPI ampOpenDevice(int32_t DeviceNr, HANDLE* DeviceHandle) {
 
 	HANDLE handle = bleDeviceManager.openDevice(DeviceNr);
 	if (!handle) {
@@ -171,7 +174,7 @@ int ampOpenDevice(int32_t DeviceNr, HANDLE* DeviceHandle) {
 /// <param name="PropertyID">       ????????</param>
 /// <param name="PropertyValue">    ???????????</param>
 /// <param name="ValueByteSize">    ??????????(???)</param>
-int ampGetProperty(
+AMPAPI ampGetProperty(
 	HANDLE DeviceHandle,
 	t_PropertyGroup PropertyGroup,
 	uint32_t Index,
@@ -206,7 +209,7 @@ int ampGetProperty(
 /// <param name="PropertyID">       ????????</param>
 /// <param name="PropertyValue">    ???????????</param>
 /// <param name="ValueByteSize">    ??????????(???)</param>
-int ampSetProperty(
+AMPAPI ampSetProperty(
 	HANDLE DeviceHandle,
 	t_PropertyGroup PropertyGroup,
 	uint32_t Index,
@@ -214,6 +217,13 @@ int ampSetProperty(
 	void* PropertyValue,
 	uint32_t ValueByteSize
 ) {
+
+	if (PropertyID == DPROP_I32_RecordingMode) {
+		int value = *static_cast<int*>(PropertyValue);
+
+		std::cout << "属性：DPROP_I32_RecordingMode: " << value << std::endl;
+	}
+
 	if (!DeviceHandle || !PropertyValue || ValueByteSize == 0)
 		return AMP_ERR_PARAM;
 
@@ -241,7 +251,7 @@ int ampSetProperty(
 ///                                 ????????????????????????????????????????LF??????</param>
 /// <param name="ArrayByteSize">    ???????????(???)</param>
 /// <param name="RangeType">        ??????????</param>
-int ampGetPropertyRange(
+AMPAPI ampGetPropertyRange(
 	HANDLE DeviceHandle,
 	t_PropertyGroup PropertyGroup,
 	uint32_t Index,
@@ -250,6 +260,7 @@ int ampGetPropertyRange(
 	uint32_t* ArrayByteSize,
 	t_PropertyRangeType* RangeType
 ) {
+
 	if (!PropertyID || !RangeArray || !ArrayByteSize || !RangeType)
 		return AMP_ERR_PARAM;
 
@@ -270,20 +281,23 @@ int ampGetPropertyRange(
 /// <summary>    ?????????? </summary>
 /// <param name="DeviceHandle">     ?????</param>
 /// <returns>    . </returns>
-int ampStartAcquisition(HANDLE DeviceHandle) {
+AMPAPI ampStartAcquisition(HANDLE DeviceHandle) {
+
 	return bleDeviceManager.startAcquisition(DeviceHandle) ? AMP_OK : AMP_ERR_BUSY;
 }
 /// <summary>    ???????? </summary>
 /// <param name="DeviceHandle">     ?????</param>
 /// <returns>    . </returns>
-int ampStopAcquisition(HANDLE DeviceHandle) {
+AMPAPI ampStopAcquisition(HANDLE DeviceHandle) {
+
 	return bleDeviceManager.stopAcquisition(DeviceHandle) ? AMP_OK : AMP_ERR_BUSY;
 }
 
 /// <summary>    ????? </summary>
 /// <param name="DeviceHandle">     ?????</param>
 /// <returns>    . </returns>
-int ampCloseDevice(HANDLE DeviceHandle) {
+AMPAPI ampCloseDevice(HANDLE DeviceHandle) {
+
 	return bleDeviceManager.closeDevice(DeviceHandle) ? AMP_OK : AMP_ERR_BUSY;
 }
 /// <summary>    ?????????? </summary>
@@ -291,7 +305,8 @@ int ampCloseDevice(HANDLE DeviceHandle) {
 /// <param name="PortNumber">       ????</param>
 /// <param name="value">            ?</param>
 /// <returns>    . </returns>
-int ampSetDigitalPort(HANDLE DeviceHandle, int32_t PortNumber, uint32_t value) {
+AMPAPI ampSetDigitalPort(HANDLE DeviceHandle, int32_t PortNumber, uint32_t value) {
+
 	return AMP_ERR_NOSUPPORT;
 }
 
@@ -309,7 +324,8 @@ int ampSetDigitalPort(HANDLE DeviceHandle, int32_t PortNumber, uint32_t value) {
 /// <param name="BufferSize">           ????????????(???)</param>
 /// <param name="RequestedSamples">     ???????????(??????)</param>
 /// <returns>??????????????????</returns>
-int ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t RequestedSamples) {
+AMPAPI ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t RequestedSamples) {
+	std::cout << "获取数据 " << std::endl;
 
 	if (!Buffer || BufferSize <= 0 || RequestedSamples <= 0) {
 		return IF_ERR_PARAMETER;
@@ -359,8 +375,8 @@ int ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t Re
 /// <param name="Buffer">           ?????????</param>
 /// <param name="BufferSize">       ????????????(???)</param>
 /// <returns>??????????????????</returns>
-int ampGetImpedanceData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize) {
-
+AMPAPI ampGetImpedanceData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize) {
+	std::cout << "获取阻抗 " << std::endl;
 	if (!Buffer || BufferSize <= 0) {
 		return IF_ERR_PARAMETER;
 	}
@@ -386,13 +402,13 @@ int ampGetImpedanceData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize) {
 /// <summary>    ????????????? </summary>
 /// <param name="DeviceHandle">     ?????</param>
 /// <returns>    . </returns>
-int ampStartFlashRecording(HANDLE DeviceHandle) {
+AMPAPI ampStartFlashRecording(HANDLE DeviceHandle) {
 	return AMP_OK;
 }
 
 /// <summary>    ???????????? </summary>
 /// <param name="DeviceHandle">     ?????</param>
 /// <returns>    . </returns>
-int ampStopFlashRecording(HANDLE DeviceHandle) {
+AMPAPI ampStopFlashRecording(HANDLE DeviceHandle) {
 	return AMP_OK;
 }

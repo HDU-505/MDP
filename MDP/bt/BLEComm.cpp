@@ -11,7 +11,7 @@ BluetoothLEAdvertisementWatcher m_btWatcher;
 LPWSTR ConvertCharToLPWSTR(char* szString, WCHAR* addrchar)
 {
 	int dwLen = strlen(szString) + 1;
-	int nwLen = MultiByteToWideChar(CP_ACP, 0, szString, dwLen, NULL, 0);//算出合适的长度
+	int nwLen = MultiByteToWideChar(CP_ACP, 0, szString, dwLen, NULL, 0);//???????????
 	MultiByteToWideChar(CP_ACP, 0, szString, dwLen, addrchar, nwLen);
 	return addrchar;
 }
@@ -54,11 +54,11 @@ bool BLEIsLowEnergySupported() {
 
 	auto getadapter_op = Windows::Devices::Bluetooth::BluetoothAdapter::GetDefaultAsync();
 	auto adapter = getadapter_op.get();
-	auto supported = adapter.IsLowEnergySupported(); // 获取windows电脑是否支持ble
+	auto supported = adapter.IsLowEnergySupported(); // ???windows??????????ble
 	if (supported == false) return false;
 	auto async = adapter.GetRadioAsync();
 	auto radio = async.get();
-	auto t = radio.State(); // 获取电脑蓝牙状态 0未知，1打开，2关闭，3硬件关闭或禁用
+	auto t = radio.State(); // ????????????? 0????1????2????3??????????
 	if (t != winrt::Windows::Devices::Radios::RadioState::On) {
 		return false;
 	}
@@ -68,49 +68,55 @@ bool BLEIsLowEnergySupported() {
 
 
 void Scanblebackfun(BluetoothLEAdvertisementWatcher w, BluetoothLEAdvertisementReceivedEventArgs e) {
+	
 	if (e.AdvertisementType() == BluetoothLEAdvertisementType::ConnectableUndirected)
 	{
-		uint64_t address = e.BluetoothAddress(); //获取蓝牙地址，建议不用转字符串太麻烦
-		auto Rssi = e.RawSignalStrengthInDBm(); //获取蓝牙信号强度
+		uint64_t address = e.BluetoothAddress();
+		auto Rssi = e.RawSignalStrengthInDBm();
+		
+		
 	 	if (BleDevices.find(address) != BleDevices.end()) {
+			std::cout << "[BLE] Device already in list, skipping" << std::endl;
 			return;
 		}
 		BleDevices.insert(pair<uint64_t, int>(address, Rssi));
 		
-		//保存有效地址
-		BluetoothLEDevice dev = BluetoothLEDevice::FromBluetoothAddressAsync(address).get();
-		int cid = 0;
-		auto id = dev.BluetoothDeviceId(); //获取蓝牙唯一id
-		auto name = dev.Name(); //获取蓝牙名称
+		// Get device info
+		try {
+			BluetoothLEDevice dev = BluetoothLEDevice::FromBluetoothAddressAsync(address).get();
+			int cid = 0;
+			auto id = dev.BluetoothDeviceId();
+			auto name = dev.Name();
 
-	
+			auto advertisement = e.Advertisement();
+			auto Datas = advertisement.DataSections();
+			auto view = Datas.GetView();
+			DataSection DataSections[10];
+			for (size_t i = 0; i < view.Size(); i++)
+			{
+				auto data = Datas.GetAt(i);
+				DataSections[i].Data = data.Data().data();
+				DataSections[i].Lenght = data.Data().Length();
+			}
 
-		auto advertisement = e.Advertisement();  //获取蓝牙广播
-		auto Datas = advertisement.DataSections();
-		auto view = Datas.GetView();
-		DataSection DataSections[10];
-		for (size_t i = 0; i < view.Size(); i++)
-		{
-			auto data = Datas.GetAt(i);
-			DataSections[i].Data = data.Data().data();
-			DataSections[i].Lenght = data.Data().Length();
-		}
+			dev.Close();
 
-		dev.Close();
+			char ID[MAXBYTE] = { 0 };
+			char Name[MAXBYTE] = { 0 };
+			char Address[MAXBYTE] = { 0 };
 
-		char ID[MAXBYTE] = { 0 };
-		char Name[MAXBYTE] = { 0 };
-		char Address[MAXBYTE] = { 0 };
+			ConvertLPWSTRToChar(id.Id().c_str(), (unsigned char*)ID);
+			ConvertLPWSTRToChar(name.c_str(), (unsigned char*)Name);
 
-		ConvertLPWSTRToChar(id.Id().c_str(), (unsigned char*)ID);
-		ConvertLPWSTRToChar(name.c_str(), (unsigned char*)Name);
+			PCHAR mactemp = NULL;
+			mactemp = strchr((char*)ID, '-');
+			errno_t err = strcpy_s(Address, 100, mactemp + 1);
 
-		PCHAR mactemp = NULL;
-		mactemp = strchr((char*)ID, '-');
-		errno_t err = strcpy_s(Address, 100, mactemp + 1);
 
-		if (OnScanedBleDeviceCallBack != NULL) {
 			OnScanedBleDeviceCallBack(ID,Name, Address, e.RawSignalStrengthInDBm(), DataSections, view.Size());
+
+		}
+		catch (const std::exception& ex) {
 		}
 		//printf("Device : Id :%s	Name:%s address: %s\n", ble->ID, ble->Name, ble->Address);
 	}
@@ -120,21 +126,32 @@ void Scanblebackfun(BluetoothLEAdvertisementWatcher w, BluetoothLEAdvertisementR
 DWORD WINAPI ScanBleThread(LPVOID lpParameter) {
 	int timeout = (int)lpParameter;
 	
-	m_btWatcher.ScanningMode(BluetoothLEScanningMode::Passive); //扫描所有此时没有连接的蓝牙
-	m_btWatcher.Received(Scanblebackfun); // 注册扫描到的蓝牙回调
-	m_btWatcher.Start(); //开始扫描
-	for(int i = 0; i< timeout/50;i++)
-	{
-		Sleep(50);
-		if (m_btWatcher.Status() == BluetoothLEAdvertisementWatcherStatus::Stopped) {
-			return 0;
+	
+	try {
+		m_btWatcher.ScanningMode(BluetoothLEScanningMode::Passive);
+		m_btWatcher.Received(Scanblebackfun);
+		
+		m_btWatcher.Start();
+		
+		for(int i = 0; i< timeout/50;i++)
+		{
+			Sleep(50);
+			if (m_btWatcher.Status() == BluetoothLEAdvertisementWatcherStatus::Stopped) {
+				return 0;
+			}
+		}
+
+		m_btWatcher.Stop();
+		
+		if (OnSacnFinishCallBack != NULL) {
+			OnSacnFinishCallBack();
+		}
+		else {
 		}
 	}
-
-	m_btWatcher.Stop();//结束扫描
-	if (OnSacnFinishCallBack != NULL) {
-		OnSacnFinishCallBack();
+	catch (const std::exception& ex) {
 	}
+	
 	return 0;
 }
 

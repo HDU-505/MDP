@@ -11,7 +11,7 @@
 // ADS1299 impedance measurement parameters
 constexpr double I_SOURCE_AMPS = 6.0e-9;   // 6nA injected current
 constexpr double UV_TO_V = 1.0e-6;         // Microvolts to volts
-constexpr double OHM_TO_KOHM = 1.0e-3;     // Ohms to kilohms
+// constexpr double OHM_TO_KOHM = 1.0e-3;     // 已弃用：阻抗现在直接以欧姆为单位
 
 ImpedanceUtil::ImpedanceUtil(float samplingRate, float targetFreq, int windowSize)
     : m_samplingRate(samplingRate), 
@@ -87,10 +87,8 @@ float ImpedanceUtil::VoltageToImpedance(float amplitudeUV)
     // I_RMS = 6nA for square wave
     double impedanceOhm = voltageV / I_SOURCE_AMPS;
     
-    // Convert to kilohms
-    float impedanceKOhm = static_cast<float>(impedanceOhm * OHM_TO_KOHM);
-    
-    return impedanceKOhm;
+    // Return impedance in ohms
+    return static_cast<float>(impedanceOhm);
 }
 
 float ImpedanceUtil::CalculateSingleImpedance(const std::vector<float>& voltageData)
@@ -104,9 +102,9 @@ float ImpedanceUtil::CalculateSingleImpedance(const std::vector<float>& voltageD
     float amplitudeUV = GoertzelAmplitude(voltageData);
     
     // Convert amplitude to impedance
-    float impedanceKOhm = VoltageToImpedance(amplitudeUV);
+    float impedanceOhm = VoltageToImpedance(amplitudeUV);
     
-    return impedanceKOhm;
+    return impedanceOhm;
 }
 
 std::vector<float> ImpedanceUtil::CalculateImpedance(const std::vector<float>& voltageData)

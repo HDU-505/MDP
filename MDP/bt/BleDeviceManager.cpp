@@ -21,12 +21,15 @@ void BleDeviceManager::addDevice(const char* id, const char* name, const char* m
 
     // Check if already in list
     auto it = std::find(bleDeviceList.begin(), bleDeviceList.end(), sid);
-    if (it != bleDeviceList.end())
-        return;
-
-    bleDeviceList.emplace_back(sid);
+    bool alreadyInList = (it != bleDeviceList.end());
     
-    // Store device information
+    if (!alreadyInList) {
+        // Add new device to list
+        bleDeviceList.emplace_back(sid);
+    }
+    
+    // Always update device information (name, mac) even if device is already in list
+    // This ensures we have the latest information from scan
     DeviceInfo info;
     info.id = sid;
     info.name = sname;
@@ -37,19 +40,41 @@ void BleDeviceManager::addDevice(const char* id, const char* name, const char* m
 
 int BleDeviceManager::searchDevice(int scanTimeMs, int maxRetries)
 {
+	
 	if (scanning) {
 		return AMP_ERR_BUSY;
 	}
 	
+	// Check BLE support first
+	if (!BLEIsLowEnergySupported()) {
+		std::cerr << "[BleDeviceManager] ERROR: Bluetooth Low Energy not supported or disabled!" << std::endl;
+		std::cerr << "  Possible causes:" << std::endl;
+		std::cerr << "  - Bluetooth adapter is disabled" << std::endl;
+		std::cerr << "  - No Bluetooth adapter present" << std::endl;
+		std::cerr << "  - Driver issue" << std::endl;
+		return 0;
+	}
+	
+	// Clear previous scan results
+	bleDeviceList.clear();
+	
+	// PRIORITY: Add cached devices first (historical devices)
+	// This allows users to quickly reconnect to previously used devices
+	auto cachedDevices = deviceCache.getCachedDevices();
+	if (!cachedDevices.empty()) {
+		// Add cached devices to the front of the list (priority)
+		for (const auto& deviceId : cachedDevices) {
+			bleDeviceList.push_back(deviceId);
+		}
+	}
+	
 	// Try multiple scan attempts if first attempt finds nothing
 	int retryCount = 0;
-	int devicesFound = 0;
+	int devicesFound = bleDeviceList.size();  // Start with cached devices count
 	
 	while (retryCount < maxRetries) {
-		// Clear previous scan results
-		bleDeviceList.clear();
 		
-		// Start BLE scan
+		// Start BLE scan (don't clear the list, keep cached devices)
 		scanning = true;
 		scanFinished = false;
 		ScanBLEDevice(scanTimeMs);
@@ -63,18 +88,20 @@ int BleDeviceManager::searchDevice(int scanTimeMs, int maxRetries)
 		}
 		
 		scanning = false;
-		devicesFound = bleDeviceList.size();
 		
-		// If devices found, success!
-		if (devicesFound > 0) {
-			// Cache all found devices for faster reconnection next time
-			for (const auto& deviceId : bleDeviceList) {
-				deviceCache.addDevice(deviceId);
-			}
+		// Note: Scan results are added via addDevice callback
+		// We need to check if new devices were found during scan
+		// The scan callback will call addDevice, which adds to bleDeviceList
+		// But we need to avoid duplicates with cached devices
+		
+		// If devices found during scan, success!
+		if (bleDeviceList.size() > devicesFound) {
+			// Cache all newly found devices (they're already in bleDeviceList)
+			// The addDevice callback should have already added them
 			break;
 		}
 		
-		// No devices found, retry after short delay
+		// No new devices found, retry after short delay
 		retryCount++;
 		if (retryCount < maxRetries) {
 			// Short delay before retry (100ms)
@@ -82,14 +109,13 @@ int BleDeviceManager::searchDevice(int scanTimeMs, int maxRetries)
 		}
 	}
 	
-	// If still no devices found after retries, check cache
-	if (devicesFound == 0) {
-		auto cachedDevices = deviceCache.getCachedDevices();
-		if (!cachedDevices.empty()) {
-			// Add cached devices to scan list
-			// User can try to connect to these even if not currently advertising
-			bleDeviceList = cachedDevices;
-			devicesFound = cachedDevices.size();
+	// Update final count
+	devicesFound = bleDeviceList.size();
+	
+	// Cache all devices in the final list (including cached ones, to update their order)
+	if (devicesFound > 0) {
+		for (const auto& deviceId : bleDeviceList) {
+			deviceCache.addDevice(deviceId);
 		}
 	}
 	
@@ -126,47 +152,87 @@ HANDLE BleDeviceManager::openDevice(int32_t DeviceNr)
             currentDeviceInfo.mac = "00:00:00:00:00:00";
             g_HardwareConfig.SetDeviceInfo("Mindtooth", "00:00:00:00:00:00");
         }
+        
+        // Wait for connection to stabilize before registering notify
+        // This ensures GATT services are fully ready
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
     }
 
     bleHandle = handle;
 
-    unsigned int UUIDArry[10];
-    unsigned int ArryCount = 0;
+    if (handle != nullptr) {
+        unsigned int UUIDArry[10];
+        unsigned int ArryCount = 0;
 
-    GetAllServersUUID(handle, UUIDArry, &ArryCount);
+        GetAllServersUUID(handle, UUIDArry, &ArryCount);
 
-    for (unsigned int i = 0; i < ArryCount; ++i) {
-        if (UUIDArry[i] == 65520) {
-            unsigned int UUIDArry_Char[10];
-            unsigned int ArryCount_Char = 0;
-            GetCharcteristicByUUID(handle, UUIDArry[i], UUIDArry_Char, &ArryCount_Char);
+        for (unsigned int i = 0; i < ArryCount; ++i) {
+            if (UUIDArry[i] == 65520) {
+                unsigned int UUIDArry_Char[10];
+                unsigned int ArryCount_Char = 0;
+                GetCharcteristicByUUID(handle, UUIDArry[i], UUIDArry_Char, &ArryCount_Char);
 
-            for (unsigned int j = 0; j < ArryCount_Char; ++j) {
-                bool isread = false;
-                bool iswrite = false;
-                bool isnotify = false;
-                GetCharcteristicAction(handle, UUIDArry[i], UUIDArry_Char[j], &isread, &iswrite, &isnotify);
-                if (UUIDArry_Char[j] == 65521) {
-                    read_ServiceUUID = UUIDArry[i];
-                    read_CharacteristicUUID = UUIDArry_Char[j];
-                    RegisterReadNotify(handle, UUIDArry[i], UUIDArry_Char[j]);
-                }
-                else if (UUIDArry_Char[j] == 65522) {
-                    write_ServiceUUID = UUIDArry[i];
-                    write_CharacteristicUUID = UUIDArry_Char[j];
+                for (unsigned int j = 0; j < ArryCount_Char; ++j) {
+                    bool isread = false;
+                    bool iswrite = false;
+                    bool isnotify = false;
+                    GetCharcteristicAction(handle, UUIDArry[i], UUIDArry_Char[j], &isread, &iswrite, &isnotify);
+                    if (UUIDArry_Char[j] == 65521) {
+                        read_ServiceUUID = UUIDArry[i];
+                        read_CharacteristicUUID = UUIDArry_Char[j];
+                        // Register notify immediately after connection is stable
+                        RegisterReadNotify(handle, UUIDArry[i], UUIDArry_Char[j]);
+                    }
+                    else if (UUIDArry_Char[j] == 65522) {
+                        write_ServiceUUID = UUIDArry[i];
+                        write_CharacteristicUUID = UUIDArry_Char[j];
+                    }
                 }
             }
         }
     }
+    
     return handle;
 }
 
 
 bool BleDeviceManager::startAcquisition(HANDLE DeviceHandle)
 {
+    // CRITICAL: If mode is changing and we're currently acquiring, 
+    // we must stop first to ensure clean mode switch
+    bool modeChanged = (lastAcquisitionMode != recordingMode);
+    
+    if (isAcquiring && modeChanged) {
+        // Stop current acquisition
+        // Even if stop fails, we should try to proceed with mode switch
+        stopAcquisition(DeviceHandle);
+        
+        // Wait for data stream to stop and buffers to clear
+        // This ensures hardware stops sending data before mode switch
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        
+        // Clear buffers to remove any residual data from previous mode
+        if (protocolManager) {
+            protocolManager->clearBuffers();
+        }
+        
+        // Additional wait to ensure hardware is ready
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        
+        isAcquiring = false;
+    }
+    else if (!isAcquiring && modeChanged) {
+        // Mode changed but not currently acquiring
+        // Still clear buffers to ensure clean state
+        if (protocolManager) {
+            protocolManager->clearBuffers();
+        }
+    }
+    
     vector<uint8_t> startCommand;
     
     // Update protocol manager's recording mode (also switches buffer mode)
+    // This should be done AFTER stopping previous acquisition
     protocolManager->setRecordingMode(recordingMode);
     
     if (recordingMode == RM_NORMAL) {
@@ -189,20 +255,81 @@ bool BleDeviceManager::startAcquisition(HANDLE DeviceHandle)
         return false;
     }
     
-    // Write command to BLE characteristic
-    if (WriteDateByCharcteristic(DeviceHandle,
-        write_ServiceUUID,
-        write_CharacteristicUUID,
-        startCommand.data(),
-        startCommand.size())) {
-        return true;
+    // Get baseline statistics before sending command
+    uint64_t baselinePackets = 0;
+    if (protocolManager) {
+        auto stats = protocolManager->getStatistics();
+        baselinePackets = stats.packetsReceived;
     }
     
+    // Send command with retry mechanism
+    const int maxRetries = 3;
+    const int retryDelayMs = 100;
+    bool commandSent = false;
+    
+    for (int retry = 0; retry < maxRetries; ++retry) {
+        // Write command to BLE characteristic
+        if (WriteDateByCharcteristic(DeviceHandle,
+            write_ServiceUUID,
+            write_CharacteristicUUID,
+            startCommand.data(),
+            startCommand.size())) {
+            commandSent = true;
+            
+            // Wait a bit for command to be processed
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            
+            // Verify data reception by checking if packets are being received
+            // Wait up to 1 second for data to start arriving
+            bool dataReceived = verifyDataReception(baselinePackets, 1000);
+            
+            if (dataReceived) {
+                // Success: command sent and data is being received
+                isAcquiring = true;
+                lastAcquisitionMode = recordingMode;
+                return true;
+            }
+            else {
+                // Command sent but no data received yet
+                // This might be OK if hardware needs more time, but log a warning
+                if (retry < maxRetries - 1) {
+                    // Retry sending command
+                    std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
+                    continue;
+                }
+                else {
+                    // Last retry, accept it but log warning
+                    // Sometimes hardware takes longer to start
+                    isAcquiring = true;
+                    lastAcquisitionMode = recordingMode;
+                    // Log warning but still return true (hardware might start later)
+                    std::cerr << "[BleDeviceManager] Warning: Command sent but no data received within timeout. "
+                              << "Hardware may start sending data later." << std::endl;
+                    return true;
+                }
+            }
+        }
+        else {
+            // Write failed, retry
+            if (retry < maxRetries - 1) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
+            }
+        }
+    }
+    
+    // All retries failed
     return false;
 }
 
 bool BleDeviceManager::stopAcquisition(HANDLE DeviceHandle)
 {
+    // Get baseline packet count before stopping
+    uint64_t baselinePackets = 0;
+    if (protocolManager) {
+        auto stats = protocolManager->getStatistics();
+        baselinePackets = stats.packetsReceived;
+    }
+    
     // Send command: AE 12 02 12 (Stop acquisition)
     vector<uint8_t> stopCommand = protocolManager->buildPacket(
         protocol::COMAND_STREAM, 
@@ -210,13 +337,58 @@ bool BleDeviceManager::stopAcquisition(HANDLE DeviceHandle)
         protocol::STREAM_EEG
     );
     
-    // Write command to BLE characteristic
-    if (WriteDateByCharcteristic(DeviceHandle,
-        write_ServiceUUID,
-        write_CharacteristicUUID,
-        stopCommand.data(),
-        stopCommand.size())) {
+    // Send command with retry
+    const int maxRetries = 2;
+    bool commandSent = false;
+    
+    for (int retry = 0; retry < maxRetries; ++retry) {
+        // Write command to BLE characteristic
+        if (WriteDateByCharcteristic(DeviceHandle,
+            write_ServiceUUID,
+            write_CharacteristicUUID,
+            stopCommand.data(),
+            stopCommand.size())) {
+            commandSent = true;
+            break;
+        }
+        
+        if (retry < maxRetries - 1) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+    }
+    
+    if (commandSent) {
+        // Wait for command to take effect
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        
+        // Update acquisition state
+        isAcquiring = false;
         return true;
+    }
+    
+    // Even if command send failed, update state to avoid stuck state
+    isAcquiring = false;
+    return false;
+}
+
+bool BleDeviceManager::verifyDataReception(uint64_t baselinePackets, int timeoutMs)
+{
+    if (!protocolManager) {
+        return false;
+    }
+    
+    const int checkIntervalMs = 50;
+    int waitedMs = 0;
+    
+    while (waitedMs < timeoutMs) {
+        auto stats = protocolManager->getStatistics();
+        // Check if new packets have been received
+        if (stats.packetsReceived > baselinePackets) {
+            return true;
+        }
+        
+        std::this_thread::sleep_for(std::chrono::milliseconds(checkIntervalMs));
+        waitedMs += checkIntervalMs;
     }
     
     return false;

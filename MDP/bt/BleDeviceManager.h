@@ -45,6 +45,10 @@ public:
 	std::mutex connMtx;
 	std::condition_variable connCv;
 	bool isConnected = false;
+	
+	// Acquisition state tracking
+	bool isAcquiring = false;
+	RecordingMode lastAcquisitionMode = RM_NORMAL;
 
 public:
 	BleDeviceManager(protocol::ProtocolManager* protocolManager);
@@ -61,6 +65,14 @@ public:
 	bool startAcquisition(HANDLE DeviceHandle);
 
 	bool stopAcquisition(HANDLE DeviceHandle);
+	
+	/**
+	 * @brief Verify that data is being received from hardware
+	 * @param baselinePackets Packet count before starting acquisition
+	 * @param timeoutMs Maximum time to wait for data (milliseconds)
+	 * @return true if data is being received, false otherwise
+	 */
+	bool verifyDataReception(uint64_t baselinePackets, int timeoutMs = 1000);
 
 	bool closeDevice(HANDLE DeviceHandle);
 
