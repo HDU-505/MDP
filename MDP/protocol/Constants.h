@@ -127,8 +127,8 @@ namespace protocol {
     // 31.25Hz信号在250Hz采样率下每周期8个点
     constexpr int IMP_WINDOW_SIZE = 32;  // 32点（4个完整周期，更快响应 ~128ms）
     
-    // 阻抗单位转换：欧姆转千欧
-    constexpr double OHM_TO_KOHM = 0.001;
+    // 阻抗单位：欧姆（不再转换为千欧）
+    // constexpr double OHM_TO_KOHM = 0.001;  // 已弃用：阻抗现在直接以欧姆为单位
 
     // ================= 数据包类型定义 =================
     // PacketType：定义主机与设备之间的功能指令与数据类型

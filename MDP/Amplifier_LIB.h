@@ -33,8 +33,8 @@
 #pragma once
 
 #ifdef AMPLIFIER_EXPORTS
-//#define AMPLIFIER_API __declspec(dllexport)
-#define AMPLIFIER_API 
+#define AMPLIFIER_API __declspec(dllexport)
+//#define AMPLIFIER_API 
 #else
 #define AMPLIFIER_API __declspec(dllimport)
 #endif

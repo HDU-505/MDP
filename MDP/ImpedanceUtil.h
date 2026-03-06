@@ -31,14 +31,14 @@ public:
     /**
      * @brief Calculate impedance values from EEG voltage data
      * @param voltageData Time-domain voltage signal in microvolts (uV)
-     * @return Impedance values in kilohms (k��)
+     * @return Impedance values in ohms (k��)
      */
     std::vector<float> CalculateImpedance(const std::vector<float>& voltageData);
 
     /**
      * @brief Calculate single impedance value from one window of data
      * @param voltageData Voltage data window in microvolts (uV)
-     * @return Impedance value in kilohms (k��)
+     * @return Impedance value in ohms (k��)
      */
     float CalculateSingleImpedance(const std::vector<float>& voltageData);
 
@@ -64,7 +64,7 @@ private:
     /**
      * @brief Convert voltage amplitude to impedance
      * @param amplitudeUV Voltage amplitude in microvolts (uV)
-     * @return Impedance in kilohms (k��)
+     * @return Impedance in ohms (k��)
      */
     float VoltageToImpedance(float amplitudeUV);
 };
