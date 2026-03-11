@@ -1,6 +1,8 @@
 #pragma once
 #include "Processor.h"
 #include "Constants.h"
+#include <sstream>
+#include <iomanip>
 #include "Parser.h"
 #include "../Amplifier_LIB.h"
 #include "../ImpedanceUtil.h"
@@ -194,23 +196,30 @@ namespace protocol {
             size_t bufferCapacity;
             double bufferFill;
             bool impedanceReady;
+            uint64_t packetsLost;           // 序号检测到的丢帧
+            uint64_t interpolatedSamples;   // 插值补全的帧
         };
         
         Statistics getStatistics() const;
 
         /**
-         * @brief Reset statistics
+         * @brief 丢包情况报告（Debug 和 Release 均可用）
          */
+        std::string getPacketLossReport() const;
+
         void resetStatistics() {
             std::lock_guard<std::mutex> lock(statsMutex);
             totalPacketsReceived = 0;
-            totalPacketsDropped = 0;
-            totalBytesReceived = 0;
+            totalPacketsDropped  = 0;
+            totalBytesReceived   = 0;
+            if (parser) { parser->resetStats(); }
         }
 
-        /**
-         * @brief Clear all internal buffers
-         */
+        /** 断开重连时调用，避免序号跳跃误判为丢包 */
+        void resetConnectionState() {
+            if (parser) { parser->resetLossState(); }
+        }
+
         void clearBuffers();
     };
 

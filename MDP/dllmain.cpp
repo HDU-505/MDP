@@ -23,8 +23,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         
         // 初始化日志系统
         sdk::Logger::Initialize(
-            sdk::LogLevel::WARNING,    // 调试级别：显示所有日志
-            false,                    // 启用控制台输出
+            sdk::LogLevel::INFO,    // 调试级别：显示所有日志
+            true,                    // 启用控制台输出
             true,                    // 启用文件输出
             "sdk.log"                // 日志文件路径
         );

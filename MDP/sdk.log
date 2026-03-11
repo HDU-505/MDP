@@ -3977,3 +3977,168 @@
 [2026-01-26 20:24:18] [INFO] [GENERAL] MDP SDK Unloading
 [2026-01-26 20:24:28] [INFO] [GENERAL] MDP SDK Loaded
 [2026-01-26 20:25:51] [INFO] [GENERAL] MDP SDK Unloading
+[2026-03-11 20:08:22] [WARN] [PROTOCOL] [PktLoss] Large gap=698 zero-filled at seq=8337
+[2026-03-11 20:10:01] [WARN] [PROTOCOL] [PktLoss] Large gap=10062 zero-filled at seq=32014
+[2026-03-11 20:12:23] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-11 20:12:46] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-11 20:13:33] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-11 20:14:03] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-11 20:14:14] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-11 20:14:36] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-11 20:15:23] [WARN] [PROTOCOL] [PktLoss] Large gap=3916 zero-filled at seq=5418
+[2026-03-11 20:19:11] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-11 20:19:33] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-11 20:19:41] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-11 20:20:05] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-11 20:20:14] [WARN] [PROTOCOL] [PktLoss] Large gap=6382 zero-filled at seq=82915
+[2026-03-11 20:20:16] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 100
+  Lost (seq)   : 6382
+  Loss rate    : 6382.000%
+  Interpolated : 0
+  Zero-filled  : 6382
+  Decode errors: 0
+
+[2026-03-11 20:20:35] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-11 20:20:53] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-11 20:20:58] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-11 20:21:02] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-11 20:21:07] [WARN] [PROTOCOL] [PktLoss] Large gap=761 zero-filled at seq=2261
+[2026-03-11 20:21:08] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 100
+  Lost (seq)   : 761
+  Loss rate    : 761.000%
+  Interpolated : 0
+  Zero-filled  : 761
+  Decode errors: 0
+
+[2026-03-11 20:21:23] [WARN] [PROTOCOL] [PktLoss] Large gap=701 zero-filled at seq=3012
+[2026-03-11 20:21:24] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 150
+  Lost (seq)   : 1462
+  Loss rate    : 974.667%
+  Interpolated : 0
+  Zero-filled  : 1462
+  Decode errors: 0
+
+[2026-03-11 20:21:30] [INFO] [GENERAL] MDP SDK Unloading
+[2026-03-11 20:22:44] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-11 20:23:10] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-11 20:23:14] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-11 20:23:18] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-11 20:23:23] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-11 20:23:28] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-11 20:23:32] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-11 20:23:38] [INFO] [GENERAL] MDP SDK Unloading

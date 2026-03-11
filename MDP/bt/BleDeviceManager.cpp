@@ -48,33 +48,21 @@ int BleDeviceManager::searchDevice(int scanTimeMs, int maxRetries)
 	// Check BLE support first
 	if (!BLEIsLowEnergySupported()) {
 		std::cerr << "[BleDeviceManager] ERROR: Bluetooth Low Energy not supported or disabled!" << std::endl;
-		std::cerr << "  Possible causes:" << std::endl;
-		std::cerr << "  - Bluetooth adapter is disabled" << std::endl;
-		std::cerr << "  - No Bluetooth adapter present" << std::endl;
-		std::cerr << "  - Driver issue" << std::endl;
 		return 0;
 	}
 	
-	// Clear previous scan results
+	// Clear previous scan results — start with empty list
 	bleDeviceList.clear();
 	
-	// PRIORITY: Add cached devices first (historical devices)
-	// This allows users to quickly reconnect to previously used devices
-	auto cachedDevices = deviceCache.getCachedDevices();
-	if (!cachedDevices.empty()) {
-		// Add cached devices to the front of the list (priority)
-		for (const auto& deviceId : cachedDevices) {
-			bleDeviceList.push_back(deviceId);
-		}
-	}
+	// NOTE: Do NOT pre-add cached devices here.
+	// Only devices actually discovered by scan callback should be in the list.
+	// Cache is used AFTER scan for priority ordering.
 	
-	// Try multiple scan attempts if first attempt finds nothing
+	// Try multiple scan attempts
 	int retryCount = 0;
-	int devicesFound = bleDeviceList.size();  // Start with cached devices count
 	
 	while (retryCount < maxRetries) {
 		
-		// Start BLE scan (don't clear the list, keep cached devices)
 		scanning = true;
 		scanFinished = false;
 		ScanBLEDevice(scanTimeMs);
@@ -89,31 +77,47 @@ int BleDeviceManager::searchDevice(int scanTimeMs, int maxRetries)
 		
 		scanning = false;
 		
-		// Note: Scan results are added via addDevice callback
-		// We need to check if new devices were found during scan
-		// The scan callback will call addDevice, which adds to bleDeviceList
-		// But we need to avoid duplicates with cached devices
-		
-		// If devices found during scan, success!
-		if (bleDeviceList.size() > devicesFound) {
-			// Cache all newly found devices (they're already in bleDeviceList)
-			// The addDevice callback should have already added them
+		// If devices found during scan, stop retrying
+		if (!bleDeviceList.empty()) {
 			break;
 		}
 		
-		// No new devices found, retry after short delay
+		// No devices found, retry after short delay
 		retryCount++;
 		if (retryCount < maxRetries) {
-			// Short delay before retry (100ms)
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		}
 	}
 	
-	// Update final count
-	devicesFound = bleDeviceList.size();
+	int devicesFound = static_cast<int>(bleDeviceList.size());
 	
-	// Cache all devices in the final list (including cached ones, to update their order)
 	if (devicesFound > 0) {
+		// Re-order: move cached (previously-used) devices to the front
+		// This gives priority to known devices without adding offline ones
+		auto cachedDevices = deviceCache.getCachedDevices();
+		if (!cachedDevices.empty()) {
+			std::vector<std::string> reordered;
+			
+			// First: cached devices that were actually found in this scan
+			for (const auto& cachedId : cachedDevices) {
+				auto it = std::find(bleDeviceList.begin(), bleDeviceList.end(), cachedId);
+				if (it != bleDeviceList.end()) {
+					reordered.push_back(cachedId);
+				}
+			}
+			
+			// Then: newly discovered devices (not in cache)
+			for (const auto& deviceId : bleDeviceList) {
+				auto it = std::find(reordered.begin(), reordered.end(), deviceId);
+				if (it == reordered.end()) {
+					reordered.push_back(deviceId);
+				}
+			}
+			
+			bleDeviceList = std::move(reordered);
+		}
+		
+		// Update cache with currently visible devices
 		for (const auto& deviceId : bleDeviceList) {
 			deviceCache.addDevice(deviceId);
 		}
@@ -122,6 +126,7 @@ int BleDeviceManager::searchDevice(int scanTimeMs, int maxRetries)
 	scanFinished = false;
 	return devicesFound;
 }
+
 
 HANDLE BleDeviceManager::openDevice(int32_t DeviceNr)
 {
@@ -230,6 +235,10 @@ bool BleDeviceManager::startAcquisition(HANDLE DeviceHandle)
     }
     
     vector<uint8_t> startCommand;
+    
+    // 重置丢包检测状态（避免上次采集的 lastSampleSeq 造成误判）
+    protocolManager->resetConnectionState();
+    protocolManager->resetStatistics();
     
     // Update protocol manager's recording mode (also switches buffer mode)
     // This should be done AFTER stopping previous acquisition
@@ -360,6 +369,12 @@ bool BleDeviceManager::stopAcquisition(HANDLE DeviceHandle)
     if (commandSent) {
         // Wait for command to take effect
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        
+        // 停止采集时自动输出丢包报告
+        if (protocolManager) {
+            std::string report = protocolManager->getPacketLossReport();
+            sdk::Logger::Info(report);
+        }
         
         // Update acquisition state
         isAcquiring = false;

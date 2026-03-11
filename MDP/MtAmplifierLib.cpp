@@ -100,7 +100,7 @@ AMPAPI GetLibraryVersion(t_VersionNumber* pLibraryVersion) {
 }
 
 /// <summary>    ??????? </summary>
-/// <param name="HWI">              ?????????????�????"ANY"??????
+/// <param name="HWI">              ?????????????�????"ANY"??????
 ///                                 ??????"ANY"?????????????????????????
 ///                                 ?????????"ANY", "USB", "BT"??"SIM"</param>
 /// <param name="HWISize">          ??????????????</param>
@@ -221,7 +221,7 @@ AMPAPI ampSetProperty(
 	if (PropertyID == DPROP_I32_RecordingMode) {
 		int value = *static_cast<int*>(PropertyValue);
 
-		std::cout << "���ԣ�DPROP_I32_RecordingMode: " << value << std::endl;
+		std::cout << "属性：DPROP_I32_RecordingMode: " << value << std::endl;
 	}
 
 	if (!DeviceHandle || !PropertyValue || ValueByteSize == 0)
@@ -325,7 +325,6 @@ AMPAPI ampSetDigitalPort(HANDLE DeviceHandle, int32_t PortNumber, uint32_t value
 /// <param name="RequestedSamples">     ???????????(??????)</param>
 /// <returns>??????????????????</returns>
 AMPAPI ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t RequestedSamples) {
-	std::cout << "��ȡ���� " << std::endl;
 
 	if (!Buffer || BufferSize <= 0 || RequestedSamples <= 0) {
 		return IF_ERR_PARAMETER;
@@ -345,23 +344,25 @@ AMPAPI ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t
 	// ???????? sample ??
 	int requestCount = min(RequestedSamples, maxSampleCount);
 
-	// ??????????????? byte buffer??
+	// 获取 EEG 数据（可能因插值产生比 requestCount 更多的帧）
 	vector<uint8_t> data = protocolManager.getEEGData(requestCount);
 
-	// ????????? sample ??
-	int actualSamples = static_cast<int>(data.size() / sampleLen);
-	if (actualSamples <= 0) {
-		return 0;  // ??????????
+	if (data.empty()) {
+		return 0;
 	}
 
-	// ?????????????????
-	size_t bytesToCopy = static_cast<size_t>(actualSamples) * sampleLen;
+	// 插值帧导致 data 可能大于 BufferSize，必须截断到 Buffer 容量
+	size_t bytesToCopy = min(data.size(), static_cast<size_t>(BufferSize));
+	// 对齐到整帧（不拷贝半帧）
+	bytesToCopy = (bytesToCopy / sampleLen) * sampleLen;
 
-	// ???????? Buffer
+	if (bytesToCopy == 0) {
+		return 0;
+	}
+
 	memcpy(Buffer, data.data(), bytesToCopy);
 
-	// ???????????? sample ??
-	return data.size();
+	return static_cast<int>(bytesToCopy);
 }
 
 
@@ -376,7 +377,6 @@ AMPAPI ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t
 /// <param name="BufferSize">       ????????????(???)</param>
 /// <returns>??????????????????</returns>
 AMPAPI ampGetImpedanceData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize) {
-	std::cout << "��ȡ�迹 " << std::endl;
 	if (!Buffer || BufferSize <= 0) {
 		return IF_ERR_PARAMETER;
 	}

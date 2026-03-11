@@ -1,5 +1,7 @@
 #include "ProtocolManager.h"
 #include <algorithm>
+#include <sstream>
+#include <iomanip>
 
 using namespace std;
 using namespace sdk;
@@ -10,29 +12,21 @@ namespace protocol {
         : currentMode(recordingMode)
     {
         try {
-            // Initialize dual-mode buffer processor
             processor = std::make_unique<Processor>(NEW_PACKET_TOTAL_SIZE, 500);
             
-            // Set initial buffer mode based on recording mode
             if (recordingMode == RM_IMPEDANCE) {
                 processor->setBufferMode(DualModeBuffer::Mode::IMPEDANCE, false);
             } else {
                 processor->setBufferMode(DualModeBuffer::Mode::NORMAL, false);
             }
             
-            // Initialize parser
             parser = std::make_unique<Parser>();
             
-            // Initialize real-time impedance calculator
-            // Optimized for fast updates with sliding window
             realTimeImpedance = std::make_unique<RealTimeImpedanceCalculator>(
-                8,      // 8 channels
-                32,     // 32 samples window (4 complete cycles @ 31.25Hz, faster response)
-                250.0f, // 250Hz sampling rate
-                31.25f  // 31.25Hz target frequency
+                8, 32, 250.0f, 31.25f
             );
             
-            Logger::Info("ProtocolManager initialized with dual-mode buffer");
+            Logger::Info("ProtocolManager initialized");
         }
         catch (const std::exception& e) {
             Logger::Fatal(ErrorCategory::GENERAL, 
@@ -43,10 +37,7 @@ namespace protocol {
 
     void ProtocolManager::processData(const uint8_t* data, size_t len)
     {
-        if (!data || len == 0) {
-            Logger::Warning("Received null or empty data");
-            return;
-        }
+        if (!data || len == 0) return;   // 静默忽略空数据，不再打 Warning
 
         {
             std::lock_guard<std::mutex> lock(statsMutex);
@@ -54,10 +45,6 @@ namespace protocol {
         }
         
         processor->appendData(data, len);
-        
-        // Log only at DEBUG level to avoid performance impact
-        Logger::Log(LogLevel::DEBUG, ErrorCategory::PROTOCOL, 
-            "Received " + std::to_string(len) + " bytes");
     }
 
     std::vector<uint8_t> ProtocolManager::buildPacket(
@@ -66,12 +53,7 @@ namespace protocol {
         StreamMask streamMask)
     {
         try {
-            auto packet = parser->buildControlPacket(packetType);
-            
-            Logger::Log(LogLevel::DEBUG, ErrorCategory::PROTOCOL,
-                "Built command packet: type=0x" + std::to_string(packetType));
-            
-            return packet;
+            return parser->buildControlPacket(packetType);
         }
         catch (const std::exception& e) {
             Logger::Error(ErrorCategory::PROTOCOL, 
@@ -84,18 +66,14 @@ namespace protocol {
     {
         std::vector<uint8_t> result;
         
-        if (sampleCount <= 0) {
-            Logger::Warning("Invalid sample count: " + std::to_string(sampleCount));
-            return result;
-        }
+        if (sampleCount <= 0) return result;
 
         try {
-            // Extract raw packets from ring buffer (efficient O(1) operations)
-            auto rawPackets = processor->waitAndExtractPackets(sampleCount);
+            // 非阻塞提取：如果缓冲区无数据，立即返回空（离线安全）
+            auto rawPackets = processor->extractPackets(sampleCount);
             
             if (rawPackets.empty()) {
-                Logger::Log(LogLevel::DEBUG, ErrorCategory::PROTOCOL, "No packets available");
-                return result;
+                return result;  // 无数据时静默返回，不打日志
             }
 
             {
@@ -103,26 +81,20 @@ namespace protocol {
                 totalPacketsReceived += rawPackets.size();
             }
             
-            // Pre-allocate output buffer
             result.reserve(rawPackets.size() * SINGLE_SAMPLE_OUTPUT_SIZE);
 
-            // Parse packets and update real-time impedance calculator
             size_t successCount = 0;
             
             for (const auto& pkt : rawPackets) {
                 std::vector<float> voltageData;
                 
-                // Parse to get voltage values
                 if (parser->parseNewEEGPacket2Float(pkt.data(), pkt.size(), voltageData)) {
-                    // For EEG data output, we need byte format
                     if (!parser->parseNewEEGPacket2Byte(pkt.data(), pkt.size(), result)) {
                         std::lock_guard<std::mutex> lock(statsMutex);
                         totalPacketsDropped++;
-                        Logger::Warning("Failed to convert packet to byte format");
                         continue;
                     }
                     
-                    // Update real-time impedance calculator with latest data
                     if (currentMode == RM_IMPEDANCE && voltageData.size() == 8) {
                         realTimeImpedance->addSample(voltageData.data(), voltageData.size());
                     }
@@ -131,13 +103,16 @@ namespace protocol {
                 } else {
                     std::lock_guard<std::mutex> lock(statsMutex);
                     totalPacketsDropped++;
-                    Logger::Warning("Failed to parse packet");
                 }
             }
 
-            Logger::Log(LogLevel::DEBUG, ErrorCategory::PROTOCOL,
-                "Extracted " + std::to_string(successCount) + "/" + 
-                std::to_string(rawPackets.size()) + " packets");
+#ifdef _DEBUG
+            if (successCount > 0) {
+                Logger::Log(LogLevel::DEBUG, ErrorCategory::PROTOCOL,
+                    "EEG: " + to_string(successCount) + "/" + 
+                    to_string(rawPackets.size()) + " packets OK");
+            }
+#endif
         }
         catch (const std::exception& e) {
             Logger::Error(ErrorCategory::PROTOCOL, 
@@ -153,21 +128,17 @@ namespace protocol {
         std::vector<float> result;
 
         try {
-            // IMPORTANT: Extract and parse new data packets to feed RealTimeImpedanceCalculator
-            // We need to continuously update the sliding window with latest data
-            auto rawPackets = processor->waitAndExtractPackets(100);  // Extract up to 100 packets
+            // 非阻塞提取（离线安全）
+            auto rawPackets = processor->extractPackets(100);
             
             if (!rawPackets.empty()) {
                 for (const auto& pkt : rawPackets) {
                     std::vector<float> voltageData;
                     
-                    // Parse to get voltage values
                     if (parser->parseNewEEGPacket2Float(pkt.data(), pkt.size(), voltageData)) {
-                        // Feed data to real-time impedance calculator
                         if (voltageData.size() == 8) {
                             realTimeImpedance->addSample(voltageData.data(), voltageData.size());
                         }
-                        
                         {
                             std::lock_guard<std::mutex> lock(statsMutex);
                             totalPacketsReceived++;
@@ -177,51 +148,32 @@ namespace protocol {
                         totalPacketsDropped++;
                     }
                 }
-                
-                Logger::Log(LogLevel::DEBUG, ErrorCategory::PROTOCOL,
-                    "Impedance: processed " + std::to_string(rawPackets.size()) + " packets");
             }
             
-            // Reserve space: REF + GND + 8 channels × 2
             result.reserve(2 + EEG_CHANNEL_COUNT * 2);
 
-            // Check if we have enough data for calculation
             if (!realTimeImpedance->areAllChannelsReady()) {
-                Logger::Info("Insufficient data for impedance calculation");
-                
-                auto stats = realTimeImpedance->getStatistics();
-                Logger::Info("Window fill: " + std::to_string(stats.currentFill) + "/" + 
-                           std::to_string(stats.windowSize));
-                
-                // Return default values for REF and GND
-                result.push_back(0.0f);  // REF (not ready)
-                result.push_back(0.0f);  // GND (not ready)
-                
-                // Return default values for channels
+                // 数据不足：静默返回默认值，不打日志（避免离线时刷屏）
+                result.push_back(0.0f);
+                result.push_back(0.0f);
                 for (int ch = 0; ch < EEG_CHANNEL_COUNT; ++ch) {
-                    result.push_back(-1.0f);  // Not ready
-                    result.push_back(-1.0f);  // Reserved
+                    result.push_back(-1.0f);
+                    result.push_back(-1.0f);
                 }
                 return result;
             }
 
-            // Calculate impedance for all channels using LATEST data
             float impedances[8];
             float refImpedance = 0.0f;
             float gndImpedance = 0.0f;
             
             if (realTimeImpedance->calculateImpedance(impedances, 8)) {
-                Logger::Info("Real-time impedance calculated successfully");
-                
-                // Calculate REF and GND impedance based on channel impedances
-                // Normal impedance range: > 0 and < 50000 ohms (50 kΩ)
-                constexpr float MAX_NORMAL_IMPEDANCE = 50000.0f;  // 50 kΩ in ohms
+                constexpr float MAX_NORMAL_IMPEDANCE = 50000.0f;
                 constexpr float MIN_VALID_IMPEDANCE = 0.0f;
                 
                 std::vector<float> validImpedances;
                 float maxImpedance = 0.0f;
                 
-                // Collect valid impedances and find maximum
                 for (int ch = 0; ch < EEG_CHANNEL_COUNT; ++ch) {
                     if (impedances[ch] > MIN_VALID_IMPEDANCE && impedances[ch] < MAX_NORMAL_IMPEDANCE) {
                         validImpedances.push_back(impedances[ch]);
@@ -231,49 +183,34 @@ namespace protocol {
                     }
                 }
                 
-                // Calculate REF and GND values
                 if (!validImpedances.empty()) {
-                    // Use average of valid impedances
                     float sum = 0.0f;
-                    for (float imp : validImpedances) {
-                        sum += imp;
-                    }
-                    float avgImpedance = sum / validImpedances.size();
-                    
-                    // Make REF and GND slightly different (5% variation)
-                    refImpedance = avgImpedance * 1.05f;  // REF is 5% higher
-                    gndImpedance = avgImpedance * 0.95f;  // GND is 5% lower
+                    for (float imp : validImpedances) { sum += imp; }
+                    float avg = sum / validImpedances.size();
+                    refImpedance = avg * 1.05f;
+                    gndImpedance = avg * 0.95f;
                 } else {
-                    // No valid impedances, use maximum value
-                    refImpedance = maxImpedance * 1.05f;  // REF is 5% higher
-                    gndImpedance = maxImpedance * 0.95f;  // GND is 5% lower
+                    refImpedance = maxImpedance * 1.05f;
+                    gndImpedance = maxImpedance * 0.95f;
                 }
                 
-                // Add REF and GND to result
                 result.push_back(refImpedance);
                 result.push_back(gndImpedance);
                 
-                Logger::Log(LogLevel::DEBUG, ErrorCategory::GENERAL,
-                    "REF: " + std::to_string(refImpedance) + " Ω, GND: " + 
-                    std::to_string(gndImpedance) + " Ω");
-                
-                // Add channel impedances
                 for (int ch = 0; ch < EEG_CHANNEL_COUNT; ++ch) {
                     result.push_back(impedances[ch]);
-                    result.push_back(-1.0f);  // Reserved for future use
-                    
-                    Logger::Log(LogLevel::DEBUG, ErrorCategory::GENERAL,
-                        "CH" + std::to_string(ch) + ": " + 
-                        std::to_string(impedances[ch]) + " Ω");
+                    result.push_back(-1.0f);
                 }
+
+#ifdef _DEBUG
+                Logger::Log(LogLevel::DEBUG, ErrorCategory::GENERAL,
+                    "Impedance: REF=" + to_string(refImpedance) +
+                    " GND=" + to_string(gndImpedance));
+#endif
             }
             else {
-                Logger::Warning("Impedance calculation failed");
-                // Return default values for REF and GND
-                result.push_back(0.0f);  // REF (calculation failed)
-                result.push_back(0.0f);  // GND (calculation failed)
-                
-                // Return default values for channels
+                result.push_back(0.0f);
+                result.push_back(0.0f);
                 for (int ch = 0; ch < EEG_CHANNEL_COUNT; ++ch) {
                     result.push_back(-1.0f);
                     result.push_back(-1.0f);
@@ -292,10 +229,8 @@ namespace protocol {
     double ProtocolManager::getImpedanceReadiness() const
     {
         if (!realTimeImpedance) return 0.0;
-        
         auto stats = realTimeImpedance->getStatistics();
         if (stats.windowSize == 0) return 0.0;
-        
         return static_cast<double>(stats.currentFill) / stats.windowSize;
     }
 
@@ -306,8 +241,8 @@ namespace protocol {
         {
             std::lock_guard<std::mutex> lock(statsMutex);
             stats.packetsReceived = totalPacketsReceived;
-            stats.packetsDropped = totalPacketsDropped;
-            stats.bytesReceived = totalBytesReceived;
+            stats.packetsDropped  = totalPacketsDropped;
+            stats.bytesReceived   = totalBytesReceived;
             stats.dropRate = (totalPacketsReceived > 0) 
                 ? static_cast<double>(totalPacketsDropped) / totalPacketsReceived 
                 : 0.0;
@@ -315,14 +250,46 @@ namespace protocol {
         
         if (processor) {
             auto bufferStats = processor->getStatistics();
-            stats.bufferSize = bufferStats.bufferSize;
+            stats.bufferSize     = bufferStats.bufferSize;
             stats.bufferCapacity = bufferStats.bufferCapacity;
-            stats.bufferFill = bufferStats.fillPercentage;
+            stats.bufferFill     = bufferStats.fillPercentage;
+        }
+        
+        if (parser) {
+            stats.packetsLost         = parser->getLostPackets();
+            stats.interpolatedSamples = parser->getInterpolatedSamples();
+        } else {
+            stats.packetsLost         = 0;
+            stats.interpolatedSamples = 0;
         }
         
         stats.impedanceReady = isImpedanceReady();
         
         return stats;
+    }
+
+    std::string ProtocolManager::getPacketLossReport() const
+    {
+        auto stats = getStatistics();
+
+        double lossRatePct = (stats.packetsReceived > 0)
+            ? 100.0 * static_cast<double>(stats.packetsLost) / stats.packetsReceived
+            : 0.0;
+
+        uint64_t zeroFilled = (stats.packetsLost > stats.interpolatedSamples)
+            ? stats.packetsLost - stats.interpolatedSamples
+            : 0;
+
+        std::ostringstream ss;
+        ss << std::fixed << std::setprecision(3);
+        ss << "[PacketLoss Report]\n";
+        ss << "  Received     : " << stats.packetsReceived    << "\n";
+        ss << "  Lost (seq)   : " << stats.packetsLost        << "\n";
+        ss << "  Loss rate    : " << lossRatePct              << "%\n";
+        ss << "  Interpolated : " << stats.interpolatedSamples << "\n";
+        ss << "  Zero-filled  : " << zeroFilled               << "\n";
+        ss << "  Decode errors: " << stats.packetsDropped     << "\n";
+        return ss.str();
     }
 
     void ProtocolManager::clearBuffers()
@@ -334,8 +301,6 @@ namespace protocol {
         if (realTimeImpedance) {
             realTimeImpedance->clear();
         }
-        
-        Logger::Info("All buffers cleared");
     }
 
 } // namespace protocol
