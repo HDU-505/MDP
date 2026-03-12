@@ -1,4 +1,4 @@
-# include "PropertyUtil.h"
+﻿# include "PropertyUtil.h"
 # include "HardwareConfig.h"
 
 t_VersionNumber apiVer = { 3, 2, 0, 0 };
@@ -95,6 +95,8 @@ int GetDeviceProperty(int32_t PropertyID, void* PropertyValue, uint32_t ValueByt
 		case DPROP_I32_BatteryLevel:
 			return SetVal(PropertyValue, ValueByteSize, g_HardwareConfig.batteryLevel);
 		case DPROP_I32_RecordingMode:
+			// BUG-2 FIX: avoid device null reference early in property fetch
+			if (!device) return AMP_ERR_NODEVICE;
 			return SetVal(PropertyValue, ValueByteSize, (int32_t)device->recordingMode);
 		case DPROP_I32_SignalQuality:
 			return SetVal(PropertyValue, ValueByteSize, g_HardwareConfig.signalQuality);

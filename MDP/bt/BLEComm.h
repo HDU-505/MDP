@@ -3,107 +3,110 @@
 #include <windows.h>
 #include "BleHandle.h"
 
-// ¶¨Òå BLE Éè±¸¾ä±úÀàĞÍ
+// å®šä¹‰ BLE è®¾å¤‡å¥æŸ„ç±»å‹
 #define  HANDLE void *
 
 
 
-// Êı¾İ¶Î½á¹¹Ìå£¬ÓÃÓÚ·â×°Ô­Ê¼Êı¾İºÍ³¤¶È
+// æ•°æ®æ®µç»“æ„ä½“ï¼Œç”¨äºå°è£…åŸå§‹æ•°æ®å’Œé•¿åº¦
 typedef struct DataSection {
-	unsigned char* Data;  // Êı¾İÖ¸Õë
-	int Lenght;            // Êı¾İ³¤¶È
+	unsigned char* Data;  // æ•°æ®æŒ‡é’ˆ
+	int Lenght;            // æ•°æ®é•¿åº¦
 } DataSection;
 
-// BLE Éè±¸½ÓÊÕÊı¾İµÄ»Øµ÷º¯ÊıÀàĞÍ
-// handle£ºÉè±¸¾ä±ú
-// ServiceUUID£º·şÎñ UUID
-// CharacteristicUUID£ºÌØÕ÷Öµ UUID
-// recvData£º½ÓÊÕµ½µÄÊı¾İÖ¸Õë
-// lenght£ºÊı¾İ³¤¶È
+// BLE è®¾å¤‡æ¥æ”¶æ•°æ®çš„å›è°ƒå‡½æ•°ç±»å‹
+// handleï¼šè®¾å¤‡å¥æŸ„
+// ServiceUUIDï¼šæœåŠ¡ UUID
+// CharacteristicUUIDï¼šç‰¹å¾å€¼ UUID
+// recvDataï¼šæ¥æ”¶åˆ°çš„æ•°æ®æŒ‡é’ˆ
+// lenghtï¼šæ•°æ®é•¿åº¦
 typedef void BleDeviceRecvDataCallBack(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID, unsigned char* recvData, unsigned int lenght);
 
-// É¨Ãèµ½ BLE Éè±¸Ê±µÄ»Øµ÷º¯ÊıÀàĞÍ
-// ID£ºÉè±¸±êÊ¶·û
-// PenName£ºÉè±¸Ãû³Æ
-// PenMac£ºÉè±¸ MAC µØÖ·
-// rssi£ºĞÅºÅÇ¿¶È
-// DataSections£º¹ã²¥Êı¾İÄÚÈİ
-// DataSectionCount£º¹ã²¥Êı¾İ¶ÎÊıÁ¿
+// æ‰«æåˆ° BLE è®¾å¤‡æ—¶çš„å›è°ƒå‡½æ•°ç±»å‹
+// IDï¼šè®¾å¤‡æ ‡è¯†ç¬¦
+// PenNameï¼šè®¾å¤‡åç§°
+// PenMacï¼šè®¾å¤‡ MAC åœ°å€
+// rssiï¼šä¿¡å·å¼ºåº¦
+// DataSectionsï¼šå¹¿æ’­æ•°æ®å†…å®¹
+// DataSectionCountï¼šå¹¿æ’­æ•°æ®æ®µæ•°é‡
 typedef void ScanedBleDeviceCallBack(const char* ID, const char* PenName, const char* PenMac, int rssi, DataSection* DataSections, int DataSectionCount);
 
-// BLE É¨ÃèÍê³ÉµÄ»Øµ÷º¯ÊıÀàĞÍ
+// BLE æ‰«æå®Œæˆçš„å›è°ƒå‡½æ•°ç±»å‹
 typedef void SacnBleDeviceFinishCallBack();
 
-// BLE Á¬½Ó×´Ì¬±ä»¯»Øµ÷º¯ÊıÀàĞÍ
-// handle£ºÉè±¸¾ä±ú
-// PenMac£ºÉè±¸ MAC µØÖ·
-// IsConnect£ºÊÇ·ñÁ¬½Ó
+// BLE è¿æ¥çŠ¶æ€å˜åŒ–å›è°ƒå‡½æ•°ç±»å‹
+// handleï¼šè®¾å¤‡å¥æŸ„
+// PenMacï¼šè®¾å¤‡ MAC åœ°å€
+// IsConnectï¼šæ˜¯å¦è¿æ¥
 typedef void ConnectionBleDeviceStatusCallBack(HANDLE handle, const char* PenMac, bool IsConnect);
 
-// ×¢²á¼àÌıÄ³¸öÌØÕ÷ÖµµÄ Notify Í¨Öª
-// handle£ºÉè±¸¾ä±ú
-// ServiceUUID£º·şÎñ UUID
-// CharacteristicUUID£ºÌØÕ÷Öµ UUID
+// æ³¨å†Œç›‘å¬æŸä¸ªç‰¹å¾å€¼çš„ Notify é€šçŸ¥
+// handleï¼šè®¾å¤‡å¥æŸ„
+// ServiceUUIDï¼šæœåŠ¡ UUID
+// CharacteristicUUIDï¼šç‰¹å¾å€¼ UUID
 void RegisterReadNotify(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID);
 
 
-// ËùÓĞÒÑÁ¬½ÓµÄ BLE Éè±¸¶ÔÏó£¨°´µØÖ·´æ´¢£©
+// æ‰€æœ‰å·²è¿æ¥çš„ BLE è®¾å¤‡å¯¹è±¡ï¼ˆæŒ‰åœ°å€å­˜å‚¨ï¼‰
 extern map<string, BleHandle*> Pens;
 
-// Êı¾İ½ÓÊÕ»Øµ÷
+// æ•°æ®æ¥æ”¶å›è°ƒ
 extern BleDeviceRecvDataCallBack* OnRecvDataCallBack;
 
-// É¨Ãèµ½Éè±¸»Øµ÷
+// æ‰«æåˆ°è®¾å¤‡å›è°ƒ
 extern ScanedBleDeviceCallBack* OnScanedBleDeviceCallBack;
 
-// É¨ÃèÍê³É»Øµ÷
+// æ‰«æå®Œæˆå›è°ƒ
 extern SacnBleDeviceFinishCallBack* OnSacnFinishCallBack;
 
-// Á¬½Ó×´Ì¬±ä»¯»Øµ÷
+// è¿æ¥çŠ¶æ€å˜åŒ–å›è°ƒ
 extern ConnectionBleDeviceStatusCallBack* OnConnectionStatusCallBack;
 
-// ×¢²áÉè±¸É¨Ãè»Øµ÷
+// æ³¨å†Œè®¾å¤‡æ‰«æå›è°ƒ
 void RegisterRecvBleDevice(ScanedBleDeviceCallBack CallBack);
 
-// ×¢²áÉè±¸É¨ÃèÍê³É»Øµ÷
+// æ³¨å†Œè®¾å¤‡æ‰«æå®Œæˆå›è°ƒ
 void RegisterSacnBleDeviceFinish(SacnBleDeviceFinishCallBack CallBack);
 
-// ×¢²á BLE Á¬½Ó×´Ì¬±ä»¯»Øµ÷
+// æ³¨å†Œ BLE è¿æ¥çŠ¶æ€å˜åŒ–å›è°ƒ
 void RegisterConnectionBleDeviceStatus(ConnectionBleDeviceStatusCallBack CallBack);
 
-// ×¢²á BLE Êı¾İ½ÓÊÕ»Øµ÷
+// æ³¨å†Œ BLE æ•°æ®æ¥æ”¶å›è°ƒ
 void RegisterBleDeviceRecvData(BleDeviceRecvDataCallBack CallBack);
 
-// ÅĞ¶Ïµ±Ç°Éè±¸ÊÇ·ñÖ§³Ö BLE£¨µÍ¹¦ºÄÀ¶ÑÀ£©
+// åˆ¤æ–­å½“å‰è®¾å¤‡æ˜¯å¦æ”¯æŒ BLEï¼ˆä½åŠŸè€—è“ç‰™ï¼‰
 bool BLEIsLowEnergySupported();
 
-// ¿ªÊ¼É¨Ãè BLE Éè±¸£¬timeout ÎªÉ¨ÃèÊ±³¤£¨µ¥Î»£ºÃë£©
+// å¼€å§‹æ‰«æ BLE è®¾å¤‡ï¼Œtimeout ä¸ºæ‰«ææ—¶é•¿ï¼ˆå•ä½ï¼šç§’ï¼‰
 void ScanBLEDevice(int timeout);
 
-// Í£Ö¹É¨Ãè BLE Éè±¸
+// åœæ­¢æ‰«æ BLE è®¾å¤‡
 void StopScanBLEDevice();
 
-// ¸ù¾İÉè±¸ ID ½¨Á¢Á¬½Ó£¬·µ»ØÉè±¸¾ä±ú
+// æ ¹æ®è®¾å¤‡ ID å»ºç«‹è¿æ¥ï¼Œè¿”å›è®¾å¤‡å¥æŸ„
 HANDLE ConnectBLEDevice(char* ID);
 
-// »ñÈ¡Ö¸¶¨Éè±¸µÄËùÓĞ·şÎñ UUID
-// UUIDArry£º·µ»ØµÄ UUID Êı×é
-// ArryCount£º·µ»ØµÄÊıÁ¿
+// è·å–æŒ‡å®šè®¾å¤‡çš„æ‰€æœ‰æœåŠ¡ UUID
+// UUIDArryï¼šè¿”å›çš„ UUID æ•°ç»„
+// ArryCountï¼šè¿”å›çš„æ•°é‡
 void GetAllServersUUID(HANDLE handle, unsigned int* UUIDArry, unsigned int* ArryCount);
 
-// »ñÈ¡Ö¸¶¨·şÎñÏÂµÄËùÓĞÌØÕ÷Öµ UUID
+// è·å–æŒ‡å®šæœåŠ¡ä¸‹çš„æ‰€æœ‰ç‰¹å¾å€¼ UUID
 void GetCharcteristicByUUID(HANDLE handle, unsigned int ServiceUUID, unsigned int* UUIDArry, unsigned int* ArryCount);
 
-// ²éÑ¯Ä³¸öÌØÕ÷ÖµÖ§³ÖµÄ²Ù×÷£¨¶Á¡¢Ğ´¡¢Í¨Öª£©
-// IsRead¡¢IsWrite¡¢IsNotify£º·µ»Ø¸ÃÌØÕ÷ÖµÊÇ·ñÖ§³Ö¶ÔÓ¦²Ù×÷
+// æŸ¥è¯¢æŸä¸ªç‰¹å¾å€¼æ”¯æŒçš„æ“ä½œï¼ˆè¯»ã€å†™ã€é€šçŸ¥ï¼‰
+// IsReadã€IsWriteã€IsNotifyï¼šè¿”å›è¯¥ç‰¹å¾å€¼æ˜¯å¦æ”¯æŒå¯¹åº”æ“ä½œ
 void GetCharcteristicAction(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID, bool* IsRead, bool* IsWrite, bool* IsNotify);
 
-// ÏòÄ³¸öÌØÕ÷ÖµĞ´ÈëÊı¾İ
+// å‘æŸä¸ªç‰¹å¾å€¼å†™å…¥æ•°æ®
 bool WriteDateByCharcteristic(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID, unsigned char* buff, unsigned int lenght);
 
-// ¶ÁÈ¡Ä³¸öÌØÕ÷ÖµµÄÊı¾İ
+// è¯»å–æŸä¸ªç‰¹å¾å€¼çš„æ•°æ®
 void ReadDataByCharcteristic(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID);
 
-// ¹Ø±ÕÓëÉè±¸µÄÁ¬½Ó£¬ÊÍ·Å×ÊÔ´
+// å…³é—­ä¸è®¾å¤‡çš„è¿æ¥ï¼Œé‡Šæ”¾èµ„æº
 void CloseBLEDevice(HANDLE handle);
+
+// å…³é—­æ‰€æœ‰å·²è¿æ¥è®¾å¤‡ï¼ˆDLL å¸è½½æˆ–ç¨‹åºé€€å‡ºæ—¶è°ƒç”¨ï¼‰
+void CloseAllBLEDevices();
 

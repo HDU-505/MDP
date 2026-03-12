@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <vector>
 #include <deque>
@@ -28,7 +28,8 @@ private:
     // Sliding window for each channel (stores voltage in uV)
     std::vector<std::deque<float>> channelWindows;
     
-    ImpedanceUtil* impedanceUtil;
+    // Goertzel processor wrapper (BUG-13 FIX: Unique_ptr lifecycle protection)
+    std::unique_ptr<ImpedanceUtil> impedanceUtil;
     
     const size_t windowSize;
     const size_t minSamplesRequired;
@@ -55,16 +56,14 @@ public:
         : windowSize(windowSize)
         , minSamplesRequired(windowSize)
     {
-        // Initialize channel windows
+        // Buffer instantiation
         channelWindows.resize(numChannels);
         
-        // Create impedance calculator
-        impedanceUtil = new ImpedanceUtil(samplingRate, targetFreq, static_cast<int>(windowSize));
+        // Smart pointer allocation
+        impedanceUtil = std::make_unique<ImpedanceUtil>(samplingRate, targetFreq, static_cast<int>(windowSize));
     }
 
-    ~RealTimeImpedanceCalculator() {
-        delete impedanceUtil;
-    }
+    ~RealTimeImpedanceCalculator() = default;
 
     /**
      * @brief Add new sample data

@@ -26,18 +26,16 @@ namespace protocol {
                 8, 32, 250.0f, 31.25f
             );
             
-            Logger::Info("ProtocolManager initialized");
         }
         catch (const std::exception& e) {
-            Logger::Fatal(ErrorCategory::GENERAL, 
-                std::string("Failed to initialize ProtocolManager: ") + e.what());
+            sdk::Logger::Info(std::string("Failed to initialize ProtocolManager: ") + e.what());
             throw;
         }
     }
 
     void ProtocolManager::processData(const uint8_t* data, size_t len)
     {
-        if (!data || len == 0) return;   // 静默忽略空数据，不再打 Warning
+        if (!data || len == 0) return;   // Silently drop empty buffers to avoid warnings
 
         {
             std::lock_guard<std::mutex> lock(statsMutex);
@@ -69,11 +67,11 @@ namespace protocol {
         if (sampleCount <= 0) return result;
 
         try {
-            // 非阻塞提取：如果缓冲区无数据，立即返回空（离线安全）
+            // Non-blocking drain: return immediately if buffer is starved (offline resilience)
             auto rawPackets = processor->extractPackets(sampleCount);
             
             if (rawPackets.empty()) {
-                return result;  // 无数据时静默返回，不打日志
+                return result;  // Return empty block instead of logging
             }
 
             {
@@ -86,17 +84,18 @@ namespace protocol {
             size_t successCount = 0;
             
             for (const auto& pkt : rawPackets) {
-                std::vector<float> voltageData;
-                
-                if (parser->parseNewEEGPacket2Float(pkt.data(), pkt.size(), voltageData)) {
-                    if (!parser->parseNewEEGPacket2Byte(pkt.data(), pkt.size(), result)) {
-                        std::lock_guard<std::mutex> lock(statsMutex);
-                        totalPacketsDropped++;
-                        continue;
-                    }
+                // BUG-3 FIX: only invoke parseNewEEGPacket2Byte to perform packet drop detection and interpolation
+                // Avoids incrementing sequence number prematurely resulting in jumping calculation logic
+                if (parser->parseNewEEGPacket2Byte(pkt.data(), pkt.size(), result)) {
                     
-                    if (currentMode == RM_IMPEDANCE && voltageData.size() == 8) {
-                        realTimeImpedance->addSample(voltageData.data(), voltageData.size());
+                    // Only parse Float voltage maps when active Impedance mode requires it
+                    if (currentMode == RM_IMPEDANCE) {
+                        std::vector<float> voltageData;
+                        if (parser->parseNewEEGPacket2Float(pkt.data(), pkt.size(), voltageData)) {
+                            if (voltageData.size() == 8) {
+                                realTimeImpedance->addSample(voltageData.data(), voltageData.size());
+                            }
+                        }
                     }
                     
                     successCount++;
@@ -128,7 +127,7 @@ namespace protocol {
         std::vector<float> result;
 
         try {
-            // 非阻塞提取（离线安全）
+            // Non-blocking data extraction (offline resilience)
             auto rawPackets = processor->extractPackets(100);
             
             if (!rawPackets.empty()) {
@@ -153,7 +152,7 @@ namespace protocol {
             result.reserve(2 + EEG_CHANNEL_COUNT * 2);
 
             if (!realTimeImpedance->areAllChannelsReady()) {
-                // 数据不足：静默返回默认值，不打日志（避免离线时刷屏）
+                // Insufficient data: return silent defaults without flooding the log
                 result.push_back(0.0f);
                 result.push_back(0.0f);
                 for (int ch = 0; ch < EEG_CHANNEL_COUNT; ++ch) {

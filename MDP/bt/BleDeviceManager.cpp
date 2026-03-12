@@ -236,7 +236,7 @@ bool BleDeviceManager::startAcquisition(HANDLE DeviceHandle)
     
     vector<uint8_t> startCommand;
     
-    // 重置丢包检测状态（避免上次采集的 lastSampleSeq 造成误判）
+    // Reset drop packet detector to avoid seq carryovers
     protocolManager->resetConnectionState();
     protocolManager->resetStatistics();
     
@@ -312,8 +312,7 @@ bool BleDeviceManager::startAcquisition(HANDLE DeviceHandle)
                     isAcquiring = true;
                     lastAcquisitionMode = recordingMode;
                     // Log warning but still return true (hardware might start later)
-                    std::cerr << "[BleDeviceManager] Warning: Command sent but no data received within timeout. "
-                              << "Hardware may start sending data later." << std::endl;
+                    sdk::Logger::Warning("Command sent but no data received within timeout.Hardware may start sending data later.");
                     return true;
                 }
             }
@@ -370,7 +369,7 @@ bool BleDeviceManager::stopAcquisition(HANDLE DeviceHandle)
         // Wait for command to take effect
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         
-        // 停止采集时自动输出丢包报告
+        // Print packet drop report after acquisition is stopped
         if (protocolManager) {
             std::string report = protocolManager->getPacketLossReport();
             sdk::Logger::Info(report);
@@ -411,9 +410,9 @@ bool BleDeviceManager::verifyDataReception(uint64_t baselinePackets, int timeout
 
 bool BleDeviceManager::closeDevice(HANDLE DeviceHandle)
 {
-    // 尝试等待设备断开，最多等待 maxRetry 次，每次间隔 intervalMs 毫秒
-    const int maxRetry = 5;     // 最大尝试次数
-    const int intervalMs = 20;   // 每次间隔 20ms
+    // Await device detachment, retry count MaxRetry times at IntervalMs frequency
+    const int maxRetry = 5;     // Try 5 times maximum
+    const int intervalMs = 20;   // Interval between tries 20ms
     int retry = 0;
 
     {

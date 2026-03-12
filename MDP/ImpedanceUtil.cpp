@@ -1,8 +1,10 @@
 #include "ImpedanceUtil.h"
+#include "ErrorHandler.h" // Includes Logger def
 #include <numeric>
 #include <iostream>
 #include <cmath>
 #include <iomanip>
+#include <string> // Includes std::to_string
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -11,7 +13,7 @@
 // ADS1299 impedance measurement parameters
 constexpr double I_SOURCE_AMPS = 6.0e-9;   // 6nA injected current
 constexpr double UV_TO_V = 1.0e-6;         // Microvolts to volts
-// constexpr double OHM_TO_KOHM = 1.0e-3;     // 已弃用：阻抗现在直接以欧姆为单位
+// constexpr double OHM_TO_KOHM = 1.0e-3;     // Deprecated: Impedances are now reported directly in ohms
 
 ImpedanceUtil::ImpedanceUtil(float samplingRate, float targetFreq, int windowSize)
     : m_samplingRate(samplingRate), 
@@ -21,8 +23,8 @@ ImpedanceUtil::ImpedanceUtil(float samplingRate, float targetFreq, int windowSiz
 {
     // Validate window size (must be multiple of 8 for 31.25Hz at 250Hz sampling)
     if (m_windowSize % 8 != 0) {
-        std::cerr << "Warning: Window size should be multiple of 8. Adjusting to: " 
-                  << (m_windowSize / 8) * 8 << std::endl;
+        std::string warningMsg = "Window size should be multiple of 8. Adjusting to: " + std::to_string((m_windowSize / 8) * 8);
+        sdk::Logger::Log(sdk::LogLevel::WARNING, sdk::ErrorCategory::GENERAL, warningMsg);
         m_windowSize = (m_windowSize / 8) * 8;
     }
     
@@ -36,17 +38,17 @@ ImpedanceUtil::~ImpedanceUtil()
 void ImpedanceUtil::CalculateCoefficient()
 {
     // Goertzel coefficient: 2 * cos(2 * pi * targetFreq / samplingRate)
-    // For 31.25Hz @ 250Hz: 2 * cos(pi/4) = sqrt(2) �� 1.414213562
+    // For 31.25Hz @ 250Hz: 2 * cos(pi/4) = sqrt(2)  1.414213562
     double omega = 2.0 * M_PI * m_targetFreq / m_samplingRate;
     m_coeff = 2.0 * std::cos(omega);
     
-    std::cout << "Goertzel coefficient: " << m_coeff << std::endl;
+    sdk::Logger::Log(sdk::LogLevel::DEBUG, sdk::ErrorCategory::GENERAL, "Goertzel coefficient: " + std::to_string(m_coeff));
 }
 
 float ImpedanceUtil::GoertzelAmplitude(const std::vector<float>& voltageData)
 {
     if (voltageData.size() < static_cast<size_t>(m_windowSize)) {
-        std::cerr << "Error: Insufficient data for Goertzel calculation" << std::endl;
+        sdk::Logger::Error(sdk::ErrorCategory::GENERAL, "Insufficient data for Goertzel calculation");
         return 0.0f;
     }
 
@@ -94,7 +96,7 @@ float ImpedanceUtil::VoltageToImpedance(float amplitudeUV)
 float ImpedanceUtil::CalculateSingleImpedance(const std::vector<float>& voltageData)
 {
     if (voltageData.size() < static_cast<size_t>(m_windowSize)) {
-        std::cerr << "Error: Insufficient data for impedance calculation" << std::endl;
+        sdk::Logger::Error(sdk::ErrorCategory::GENERAL, "Insufficient data for impedance calculation");
         return -1.0f;
     }
 
@@ -113,7 +115,7 @@ std::vector<float> ImpedanceUtil::CalculateImpedance(const std::vector<float>& v
 
     // Check if we have enough data
     if (voltageData.size() < static_cast<size_t>(m_windowSize)) {
-        std::cerr << "Error: Insufficient data for impedance calculation" << std::endl;
+        sdk::Logger::Error(sdk::ErrorCategory::GENERAL, "Insufficient data for impedance calculation");
         return impedances;
     }
 

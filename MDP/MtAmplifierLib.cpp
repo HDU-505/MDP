@@ -1,4 +1,4 @@
-# include "pch.h"
+﻿# include "pch.h"
 # include "Amplifier_LIB.h"
 # include<string>
 # include "bt/BleHandle.h"
@@ -7,13 +7,13 @@
 # include "protocol/ProtocolManager.h"
 # include "PropertyUtil.h"
 
-// ?????????
+// Revision Info: API
 const int32_t AP_MAJOR = 3;
 const int32_t AP_MINOR = 2;
 const int32_t AP_BUILD = 0;
 const int32_t AP_REVISION = 0;
 
-// ?????
+// Revision Info: Library
 const int32_t LIB_MAJOR = 1;
 const int32_t LIB_MINOR = 22;
 const int32_t LIB_BUILD = 2;
@@ -22,28 +22,19 @@ const int32_t LIB_REVISION = 28;
 using namespace std;
 
 
-// SDK????????????
+// SDK鍏ㄥ眬绠＄悊鍣ㄥ璞?
 protocol::ProtocolManager protocolManager(RecordingMode::RM_NORMAL);
 BleDeviceManager bleDeviceManager(&protocolManager);
 
-// ????????????????????????????????
+// BLE 鏁版嵁鎺ユ敹鍥炶皟灏嗘敹鍒扮殑鍘熷鏁版嵁浜ょ粰鍗忚绠＄悊鍣ㄥ鐞?
 void MtBleDeviceRecvDataCallBack(HANDLE handle, unsigned int ServiceUUID, unsigned int CharacteristicUUID, unsigned char* recvData, unsigned int length) {
-	// ?????????????????? UUID
-	//std::cout << "Received data from service UUID: " << std::hex << ServiceUUID << " characteristic UUID: " << CharacteristicUUID << std::dec << std::endl;
-	// ??????????????
-	//std::cout << "Received data (" << length << " bytes): ";
-	//for (unsigned int i = 0; i < length; ++i) {
-	//    std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)recvData[i] << " ";
-	//}
-	//std::cout << std::dec << std::endl; // Reset hex format to decimal for further prints
-
 	protocolManager.processData(recvData, length);
-	//assembler.checkTimeout();
 }
 
+// BLE 鎵弿鍙戠幇璁惧鍥炶皟
 void MtScanedBleDeviceCallBack(const char* ID, const char* PenName, const char* PenMac, int rssi, DataSection* DataSections, int DataSectionCount)
 {
-	// Filter devices by name and save full device info (name + MAC)
+	// 閫氳繃鍚嶅瓧杩囨护 Mindtooth 璁惧骞朵繚瀛樺畬鏁寸殑璁惧淇℃伅 (鍚嶇О + MAC)
 	if (string(PenName).find("Mindtooth") != string::npos) {
 		bleDeviceManager.addDevice(ID, PenName, PenMac);
 	}
@@ -66,15 +57,22 @@ void MtConnectionBleDeviceStatusCallBack(HANDLE handle, const char* PenMac, bool
 
 	}
 	bleDeviceManager.connCv.notify_one();
+	
+	// Bluetooth event status print tracking
+	if (IsConnect) {
+		sdk::Logger::Info("Device connected stream active: " + string(PenMac ? PenMac : "unknown"));
+	} else {
+		sdk::Logger::Log(sdk::LogLevel::WARNING, sdk::ErrorCategory::BLUETOOTH, "Device detached or lost: " + string(PenMac ? PenMac : "unknown"));
+	}
 }
 
-/// <summary>    ????????????? </summary>
- /// <param name="pAPIVersion">   [out] API??
- ///          ????? = 0
- ///          ?????? = 0
- ///          ????? = ???
- ///          ?????? = ????</param>
- /// <returns>???????</returns>
+/// <summary>    Get API version info </summary>
+/// <param name="pAPIVersion">   [out] API version structure
+///          Major Version = 0
+///          Minor Version = 0
+///          Build Number = Unused
+///          Revision Number = Unused</param>
+/// <returns>Status code</returns>
 AMPAPI GetAPIVersion(t_VersionNumber* pAPIVersion) {
 	pAPIVersion->Major = AP_MAJOR;
 	pAPIVersion->Minor = AP_MINOR;
@@ -83,13 +81,13 @@ AMPAPI GetAPIVersion(t_VersionNumber* pAPIVersion) {
 	return AMP_OK;
 }
 
-/// <summary>    ???????? </summary>
-/// <param name="pLibraryVersion">   [out] ???
-///          ????? = ????????
-///          ?????? = ??????
-///          ????? = ???????
-///          ?????? = ????</param>
-/// <returns>???????</returns>
+/// <summary>    Get Library version info </summary>
+/// <param name="pLibraryVersion">   [out] Library version structure
+///          Major Version = Lib major version
+///          Minor Version = Lib minor version
+///          Build Number = Lib build version
+///          Revision Number = Unused</param>
+/// <returns>Status code</returns>
 AMPAPI GetLibraryVersion(t_VersionNumber* pLibraryVersion) {
 
 	pLibraryVersion->Major = LIB_MAJOR;
@@ -99,14 +97,14 @@ AMPAPI GetLibraryVersion(t_VersionNumber* pLibraryVersion) {
 	return AMP_OK;
 }
 
-/// <summary>    ??????? </summary>
-/// <param name="HWI">              ?????????????�????"ANY"??????
-///                                 ??????"ANY"?????????????????????????
-///                                 ?????????"ANY", "USB", "BT"??"SIM"</param>
-/// <param name="HWISize">          ??????????????</param>
-/// <param name="DeviceAddress">    ?????????</param>
-/// <param name="flags">            ???????</param>
-/// <returns>    ??????????</returns>
+/// <summary>    Enumerate devices on the system </summary>
+/// <param name="HWI">              Hardware ID, pass "ANY" to list all
+///                                 "ANY" must be null terminated
+///                                 Supports: "ANY", "USB", "BT" or "SIM"</param>
+/// <param name="HWISize">          Length of HWI</param>
+/// <param name="DeviceAddress">    Device physical address (MAC or Port)</param>
+/// <param name="flags">            Additional enum flags</param>
+/// <returns>    Total number of devices found</returns>
 AMPAPI ampEnumerateDevices(char* HWI, int32_t HWISize, const char* DeviceAddress, uint32_t flags) {
 
 	if (!HWI || HWISize <= 0) {
@@ -115,7 +113,7 @@ AMPAPI ampEnumerateDevices(char* HWI, int32_t HWISize, const char* DeviceAddress
 	std::string hwi = (HWI != nullptr) ? HWI : "";
 
 	if (hwi == "BT") {
-		// ???
+		// 钃濈墮鎵弿
 	}
 	else if (hwi == "USB") {
 		return AMP_ERR_VERSION;
@@ -124,10 +122,10 @@ AMPAPI ampEnumerateDevices(char* HWI, int32_t HWISize, const char* DeviceAddress
 		return AMP_ERR_VERSION;
 	}
 	else if (hwi == "ANY") {
-		// ????BT??
+		// 鐩墠涓嶆敮鎸?USB锛岃繑鍥?
 	}
 
-	// ?????
+	// 
 	RegisterRecvBleDevice(MtScanedBleDeviceCallBack);
 	RegisterSacnBleDeviceFinish(MtScanFinishBack);
 	RegisterBleDeviceRecvData(MtBleDeviceRecvDataCallBack);
@@ -137,11 +135,11 @@ AMPAPI ampEnumerateDevices(char* HWI, int32_t HWISize, const char* DeviceAddress
 	return bleDeviceManager.searchDevice(10000, 3);
 }
 
-/// <summary>    ???????? </summary>
-/// <param name="DeviceNr">         ??0??????????</param>
-/// <param name="DeviceAddress">    ???????????</param>
-/// <param name="BufferSize">       ?????????</param>
-/// <returns>    . </returns>
+/// <summary>    Get device address </summary>
+/// <param name="DeviceNr">         Device index, starting from 0</param>
+/// <param name="DeviceAddress">    Buffer to receive the address</param>
+/// <param name="BufferSize">       Buffer size</param>
+/// <returns>    Status code </returns>
 AMPAPI ampGetDeviceAddress(int32_t DeviceNr, char* DeviceAddress, int32_t BufferSize) {
 
 	if (!DeviceAddress || BufferSize <= 0) return AMP_ERR_PARAM;
@@ -150,10 +148,10 @@ AMPAPI ampGetDeviceAddress(int32_t DeviceNr, char* DeviceAddress, int32_t Buffer
 	return AMP_OK;
 }
 
-/// <summary>    ???? </summary>
-/// <param name="DeviceNr">         ??0??????????</param>
-/// <param name="DeviceHandle">     ?????????</param>
-/// <returns>    . </returns>
+/// <summary>    Open and connect device </summary>
+/// <param name="DeviceNr">         Device index, starting from 0</param>
+/// <param name="DeviceHandle">     Pointer to receive the opened device handle</param>
+/// <returns>    Status code </returns>
 AMPAPI ampOpenDevice(int32_t DeviceNr, HANDLE* DeviceHandle) {
 
 	HANDLE handle = bleDeviceManager.openDevice(DeviceNr);
@@ -165,15 +163,14 @@ AMPAPI ampOpenDevice(int32_t DeviceNr, HANDLE* DeviceHandle) {
 	return AMP_OK;
 }
 
-/// <summary>    ???????? </summary>
-/// <param name="DeviceHandle">     ?????</param>
-/// <param name="PropertyGroup">    ?????????</param>
-/// <param name="Index">            ??????????????????????
-///                                 ????????????0??????????
-///                                 ????????????0?????????</param>
-/// <param name="PropertyID">       ????????</param>
-/// <param name="PropertyValue">    ???????????</param>
-/// <param name="ValueByteSize">    ??????????(???)</param>
+/// <summary>    Get device property value </summary>
+/// <param name="DeviceHandle">     Device handle</param>
+/// <param name="PropertyGroup">    Property group enum</param>
+/// <param name="Index">            Index inside the property group
+///                                 Fill 0 if unnecessary (e.g. fill 0 for global)</param>
+/// <param name="PropertyID">       The Property ID to query</param>
+/// <param name="PropertyValue">    Pointer to receive the property value</param>
+/// <param name="ValueByteSize">    Available byte size for buffer</param>
 AMPAPI ampGetProperty(
 	HANDLE DeviceHandle,
 	t_PropertyGroup PropertyGroup,
@@ -200,15 +197,13 @@ AMPAPI ampGetProperty(
 	return AMP_OK;
 }
 
-/// <summary>    ????????? </summary>
-/// <param name="DeviceHandle">     ?????</param>
-/// <param name="PropertyGroup">    ?????????</param>
-/// <param name="Index">            ??????????????????????
-///                                 ????????????0??????????
-///                                 ????????????0?????????</param>
-/// <param name="PropertyID">       ????????</param>
-/// <param name="PropertyValue">    ???????????</param>
-/// <param name="ValueByteSize">    ??????????(???)</param>
+/// <summary>    Set device property value </summary>
+/// <param name="DeviceHandle">     Device handle</param>
+/// <param name="PropertyGroup">    Property group enum</param>
+/// <param name="Index">            Index inside the property group</param>
+/// <param name="PropertyID">       The Property ID to alter</param>
+/// <param name="PropertyValue">    Pointer containing the new value</param>
+/// <param name="ValueByteSize">    Byte length of the new value</param>
 AMPAPI ampSetProperty(
 	HANDLE DeviceHandle,
 	t_PropertyGroup PropertyGroup,
@@ -217,15 +212,12 @@ AMPAPI ampSetProperty(
 	void* PropertyValue,
 	uint32_t ValueByteSize
 ) {
+	if (!DeviceHandle || !PropertyValue || ValueByteSize == 0)
+		return AMP_ERR_PARAM;
 
 	if (PropertyID == DPROP_I32_RecordingMode) {
 		int value = *static_cast<int*>(PropertyValue);
-
-		std::cout << "属性：DPROP_I32_RecordingMode: " << value << std::endl;
 	}
-
-	if (!DeviceHandle || !PropertyValue || ValueByteSize == 0)
-		return AMP_ERR_PARAM;
 
 	switch (PropertyGroup) {
 	case PG_DEVICE:
@@ -238,19 +230,14 @@ AMPAPI ampSetProperty(
 		return AMP_ERR_PARAM;
 	}
 }
-/// <summary>    ????????????????? </summary>
-/// <param name="DeviceHandle">     ?????</param>
-/// <param name="PropertyGroup">    ?????????</param>
-/// <param name="Index">            ??????????????????????
-///                                 ????????????0??????????
-///                                 ????????????0?????????</param>
-/// <param name="PropertyID">       ????????</param>
-/// <param name="RangeArray">       ??????????????
-///                                 ??????????????????????????????????
-///                                 ??????????RT_MINMAX????????????????????????
-///                                 ????????????????????????????????????????LF??????</param>
-/// <param name="ArrayByteSize">    ???????????(???)</param>
-/// <param name="RangeType">        ??????????</param>
+/// <summary>    Get the bounds or enumeration limitations for a property </summary>
+/// <param name="DeviceHandle">     Device handle</param>
+/// <param name="PropertyGroup">    Property group enum</param>
+/// <param name="Index">            Index inside the property group</param>
+/// <param name="PropertyID">       Target property ID</param>
+/// <param name="RangeArray">       Buffer pointer to receive bounds</param>
+/// <param name="ArrayByteSize">    Capacity array limit, mutates to actual requested size upon return</param>
+/// <param name="RangeType">        Returns whether the limit is an interval or a discrete set</param>
 AMPAPI ampGetPropertyRange(
 	HANDLE DeviceHandle,
 	t_PropertyGroup PropertyGroup,
@@ -278,52 +265,53 @@ AMPAPI ampGetPropertyRange(
 }
 
 
-/// <summary>    ?????????? </summary>
-/// <param name="DeviceHandle">     ?????</param>
-/// <returns>    . </returns>
+/// <summary>    Start acquisition </summary>
+/// <param name="DeviceHandle">     Device handle</param>
+/// <returns>    Status code </returns>
 AMPAPI ampStartAcquisition(HANDLE DeviceHandle) {
 
 	return bleDeviceManager.startAcquisition(DeviceHandle) ? AMP_OK : AMP_ERR_BUSY;
 }
-/// <summary>    ???????? </summary>
-/// <param name="DeviceHandle">     ?????</param>
-/// <returns>    . </returns>
+/// <summary>    Stop acquisition </summary>
+/// <param name="DeviceHandle">     Device handle</param>
+/// <returns>    Status code </returns>
 AMPAPI ampStopAcquisition(HANDLE DeviceHandle) {
 
 	return bleDeviceManager.stopAcquisition(DeviceHandle) ? AMP_OK : AMP_ERR_BUSY;
 }
 
-/// <summary>    ????? </summary>
-/// <param name="DeviceHandle">     ?????</param>
-/// <returns>    . </returns>
+/// <summary>    Close device </summary>
+/// <param name="DeviceHandle">     Device handle</param>
+/// <returns>    Status code </returns>
 AMPAPI ampCloseDevice(HANDLE DeviceHandle) {
 
 	return bleDeviceManager.closeDevice(DeviceHandle) ? AMP_OK : AMP_ERR_BUSY;
 }
-/// <summary>    ?????????? </summary>
-/// <param name="DeviceHandle">     ?????</param>
-/// <param name="PortNumber">       ????</param>
-/// <param name="value">            ?</param>
-/// <returns>    . </returns>
+/// <summary>    Set digital port </summary>
+/// <param name="DeviceHandle">     Device handle</param>
+/// <param name="PortNumber">       Port number</param>
+/// <param name="value">            Target value</param>
+/// <returns>    Status code </returns>
 AMPAPI ampSetDigitalPort(HANDLE DeviceHandle, int32_t PortNumber, uint32_t value) {
 
 	return AMP_ERR_NOSUPPORT;
 }
 
-/// <summary>    ????????????????
-///              ????????????????
+/// <summary>    
+///              Get acquired data
+///              
 ///              S1_SAMPLECOUNTER, S1_CH1 .. S1_CHn,
 ///              S2_SAMPLECOUNTER, S2_CH1 .. S2_CHn,
 ///              ...
 ///              Sn_SAMPLECOUNTER, Sn_CH1 .. Sn_CHn
-///              ??????????????????????????????????
-///              ????????????64??????????
+///              
+///              64
 /// </summary>
-/// <param name="DeviceHandle">         ?????</param>
-/// <param name="Buffer">               ?????????</param>
-/// <param name="BufferSize">           ????????????(???)</param>
-/// <param name="RequestedSamples">     ???????????(??????)</param>
-/// <returns>??????????????????</returns>
+/// <param name="DeviceHandle">         Device handle</param>
+/// <param name="Buffer">               Buffer pointer to retrieve samples</param>
+/// <param name="BufferSize">           Available raw byte capacity of Buffer pointer</param>
+/// <param name="RequestedSamples">     Maximum sampling block to extract per round</param>
+/// <returns>Amount of data returned in bytes</returns>
 AMPAPI ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t RequestedSamples) {
 
 	if (!Buffer || BufferSize <= 0 || RequestedSamples <= 0) {
@@ -335,25 +323,25 @@ AMPAPI ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t
 		return IF_ERR_PARAMETER;
 	}
 
-	// Buffer ????????????? sample
+	// Buffer max possible samples
 	int maxSampleCount = BufferSize / sampleLen;
 	if (maxSampleCount <= 0) {
 		return IF_ERR_PARAMETER;
 	}
 
-	// ???????? sample ??
+	// Clamp limits
 	int requestCount = min(RequestedSamples, maxSampleCount);
 
-	// 获取 EEG 数据（可能因插值产生比 requestCount 更多的帧）
+	// Get EEG data stream 
 	vector<uint8_t> data = protocolManager.getEEGData(requestCount);
 
 	if (data.empty()) {
 		return 0;
 	}
 
-	// 插值帧导致 data 可能大于 BufferSize，必须截断到 Buffer 容量
+	// Calculate copy size and clamp to buffer limit mapping
 	size_t bytesToCopy = min(data.size(), static_cast<size_t>(BufferSize));
-	// 对齐到整帧（不拷贝半帧）
+	// Snap frame boundary limit
 	bytesToCopy = (bytesToCopy / sampleLen) * sampleLen;
 
 	if (bytesToCopy == 0) {
@@ -366,16 +354,17 @@ AMPAPI ampGetData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize, int32_t
 }
 
 
-/// <summary>    ?????????????????
-///              ????????????????
+/// <summary>    
+///              Get realtime impedance mapping
+///              
 ///              M0 GND??, M0 REF??, ... Mn GND, Mn REF, CH1+, CH1-, CH2+, CH2-, .. CHn+, CHn-
-///              M0 - Mn??????MPROP_B32_ImpedanceMeasurement??????????????????
-///              ??????????float??????[??]
-///              ???????CH-???????????????????????-1
-/// <param name="DeviceHandle">     ?????</param>
-/// <param name="Buffer">           ?????????</param>
-/// <param name="BufferSize">       ????????????(???)</param>
-/// <returns>??????????????????</returns>
+///              Require MPROP_B32_ImpedanceMeasurement property
+///              float array return
+///              CH--1 limit logic
+/// <param name="DeviceHandle">     Device handle</param>
+/// <param name="Buffer">           Float buffer pointer targeting property output</param>
+/// <param name="BufferSize">       Buffer byte limits</param>
+/// <returns>Bytes read</returns>
 AMPAPI ampGetImpedanceData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize) {
 	if (!Buffer || BufferSize <= 0) {
 		return IF_ERR_PARAMETER;
@@ -399,16 +388,16 @@ AMPAPI ampGetImpedanceData(HANDLE DeviceHandle, void* Buffer, int32_t BufferSize
 	return static_cast<int>(bytesToCopy);
 }
 
-/// <summary>    ????????????? </summary>
-/// <param name="DeviceHandle">     ?????</param>
-/// <returns>    . </returns>
+/// <summary>     Start device firmware flash records (Flash) </summary>
+/// <param name="DeviceHandle">     Device handle </param>
+/// <returns>    Status code </returns>
 AMPAPI ampStartFlashRecording(HANDLE DeviceHandle) {
 	return AMP_OK;
 }
 
-/// <summary>    ???????????? </summary>
-/// <param name="DeviceHandle">     ?????</param>
-/// <returns>    . </returns>
+/// <summary>     Stop flash recording </summary>
+/// <param name="DeviceHandle">     Device handle</param>
+/// <returns>    Status code </returns>
 AMPAPI ampStopFlashRecording(HANDLE DeviceHandle) {
 	return AMP_OK;
 }

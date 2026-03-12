@@ -7,6 +7,9 @@
 #include <chrono>
 #include <sstream>
 #include <iomanip>
+#include <thread>
+#include <thread>
+#include <windows.h> // Includes WriteConsoleW to fix console string encoding bugs
 
 /**
  * @brief Unified error handling and logging system for SDK
@@ -54,7 +57,19 @@ namespace sdk {
             
             std::ostringstream oss;
             oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
+
+            // Additional Thread ID append to help with multithreading debug contexts
+            oss << "] [T:" << std::hex << std::this_thread::get_id() << std::dec;
             return oss.str();
+        }
+
+        // Safe conversion from UTF-8 to Wide String to bypass standard stream locale parsing
+        static std::wstring utf8ToWide(const std::string& utf8Str) {
+            if (utf8Str.empty()) return std::wstring();
+            int size_needed = MultiByteToWideChar(CP_UTF8, 0, &utf8Str[0], (int)utf8Str.size(), NULL, 0);
+            std::wstring wstrTo(size_needed, 0);
+            MultiByteToWideChar(CP_UTF8, 0, &utf8Str[0], (int)utf8Str.size(), &wstrTo[0], size_needed);
+            return wstrTo;
         }
 
         static std::string levelToString(LogLevel level) {
@@ -65,6 +80,18 @@ namespace sdk {
                 case LogLevel::ERR:     return "ERROR";
                 case LogLevel::FATAL:   return "FATAL";
                 default:                return "UNKNOWN";
+            }
+        }
+
+        // Log level mapped to visual Win32 console text attribute
+        static WORD getColorForLevel(LogLevel level) {
+            switch (level) {
+                case LogLevel::DEBUG:   return FOREGROUND_INTENSITY; // Dark gray
+                case LogLevel::INFO:    return FOREGROUND_GREEN | FOREGROUND_INTENSITY; // Green
+                case LogLevel::WARNING: return FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY; // Yellow
+                case LogLevel::ERR:
+                case LogLevel::FATAL:   return FOREGROUND_RED | FOREGROUND_INTENSITY; // Red
+                default:                return FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE; // White
             }
         }
 
@@ -108,16 +135,34 @@ namespace sdk {
             std::string logLine = "[" + timestamp + "] [" + levelStr + "] [" + categoryStr + "] " + message;
 
             if (consoleOutput) {
-                if (level >= LogLevel::ERR) {
-                    std::cerr << logLine << std::endl;
-                } else {
-                    std::cout << logLine << std::endl;
-                }
+                HANDLE hConsole = GetStdHandle((level >= LogLevel::ERR) ? STD_ERROR_HANDLE : STD_OUTPUT_HANDLE);
+                
+                // 1. Get console config and save
+                CONSOLE_SCREEN_BUFFER_INFO csbi;
+                GetConsoleScreenBufferInfo(hConsole, &csbi);
+                WORD oldColorAttributes = csbi.wAttributes;
+
+                // 2. Adjust target color to highlight warnings
+                WORD newColor = getColorForLevel(level);
+                SetConsoleTextAttribute(hConsole, newColor);
+
+                // 3. Encode to Wide String to bypass Command Prompt local encoding bugs
+                std::wstring wLogLine = utf8ToWide(logLine + "\n");
+                
+                // 4. Safe write out
+                DWORD charsWritten;
+                WriteConsoleW(hConsole, wLogLine.c_str(), (DWORD)wLogLine.length(), &charsWritten, NULL);
+
+                // 5. Tear down target color
+                SetConsoleTextAttribute(hConsole, oldColorAttributes);
             }
 
             if (fileOutput && logFile.is_open()) {
                 logFile << logLine << std::endl;
-                logFile.flush();
+                // For high severity events forcefully stream to disk prior to crash
+                if (level >= LogLevel::WARNING) {
+                    logFile.flush();
+                }
             }
         }
 

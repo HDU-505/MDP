@@ -4142,3 +4142,258 @@
   Decode errors: 0
 
 [2026-03-11 20:23:38] [INFO] [GENERAL] MDP SDK Unloading
+[2026-03-12 14:00:45] [INFO] [GENERAL] WinRT initialized successfully
+[2026-03-12 14:00:45] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-12 14:01:07] [INFO] [GENERAL] 属性：DPROP_I32_RecordingMode: 1
+[2026-03-12 14:01:11] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:01:14] [INFO] [GENERAL] 属性：DPROP_I32_RecordingMode: 2
+[2026-03-12 14:01:14] [INFO] [GENERAL] Switched to IMPEDANCE mode: ring buffer (latest data only)
+[2026-03-12 14:01:18] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 100
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:01:20] [INFO] [GENERAL] 属性：DPROP_I32_RecordingMode: 2
+[2026-03-12 14:01:24] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 100
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:01:25] [INFO] [GENERAL] 属性：DPROP_I32_RecordingMode: 1
+[2026-03-12 14:01:25] [INFO] [GENERAL] Switched to NORMAL mode: expandable buffer (no data loss)
+[2026-03-12 14:01:29] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:01:31] [INFO] [GENERAL] 属性：DPROP_I32_RecordingMode: 1
+[2026-03-12 14:01:34] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:01:45] [INFO] [GENERAL] 属性：DPROP_I32_RecordingMode: 1
+[2026-03-12 14:01:49] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:01:57] [INFO] [GENERAL] 属性：DPROP_I32_RecordingMode: 1
+[2026-03-12 14:02:01] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:02:45] [INFO] [GENERAL] WinRT initialized successfully
+[2026-03-12 14:02:45] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-12 14:03:19] [INFO] [GENERAL] MDP SDK Unloading
+[2026-03-12 14:03:23] [INFO] [GENERAL] WinRT initialized successfully
+[2026-03-12 14:03:23] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-12 14:03:46] [INFO] [GENERAL] 属性：DPROP_I32_RecordingMode: 1
+[2026-03-12 14:03:52] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:03:57] [INFO] [GENERAL] 属性：DPROP_I32_RecordingMode: 1
+[2026-03-12 14:04:03] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:04:12] [INFO] [GENERAL] 属性：DPROP_I32_RecordingMode: 1
+[2026-03-12 14:06:24] [INFO] [GENERAL] WinRT initialized successfully
+[2026-03-12 14:06:24] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-12 14:06:48] [INFO] [GENERAL] 属性：DPROP_I32_RecordingMode: 1
+[2026-03-12 14:06:51] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:06:53] [INFO] [GENERAL] 属性：DPROP_I32_RecordingMode: 1
+[2026-03-12 14:06:56] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:06:58] [INFO] [GENERAL] 属性：DPROP_I32_RecordingMode: 1
+[2026-03-12 14:07:02] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:07:05] [INFO] [GENERAL] 属性：DPROP_I32_RecordingMode: 1
+[2026-03-12 14:07:09] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:13:24] [T:49544] [INFO] [GENERAL] WinRT initialized successfully
+[2026-03-12 14:13:24] [T:49544] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-12 14:13:49] [T:49544] [INFO] [GENERAL] 属性：DPROP_I32_RecordingMode: 1
+[2026-03-12 14:13:53] [T:49544] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:13:58] [T:49544] [INFO] [GENERAL] 属性：DPROP_I32_RecordingMode: 1
+[2026-03-12 14:14:01] [T:49544] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:14:03] [T:49544] [INFO] [GENERAL] 属性：DPROP_I32_RecordingMode: 1
+[2026-03-12 14:14:07] [T:49544] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:32:05] [T:55492] [INFO] [GENERAL] WinRT initialized successfully
+[2026-03-12 14:32:05] [T:55492] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-12 14:32:43] [T:55492] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:32:52] [T:55492] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:32:57] [T:55492] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:55:55] [T:48460] [INFO] [GENERAL] WinRT initialized successfully
+[2026-03-12 14:55:55] [T:48460] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-12 14:56:35] [T:48460] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 14:58:37] [T:48160] [INFO] [GENERAL] WinRT initialized successfully
+[2026-03-12 14:58:37] [T:48160] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-12 14:58:51] [T:56472] [INFO] [GENERAL] MDP SDK Unloading
+[2026-03-12 14:59:00] [T:47356] [INFO] [GENERAL] WinRT initialized successfully
+[2026-03-12 14:59:00] [T:47356] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-12 14:59:22] [T:51060] [INFO] [GENERAL] MDP SDK Unloading
+[2026-03-12 14:59:26] [T:55120] [INFO] [GENERAL] WinRT initialized successfully
+[2026-03-12 14:59:26] [T:55120] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-12 14:59:52] [T:55120] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 15:00:12] [T:55120] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 15:00:17] [T:55120] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 15:01:25] [T:53264] [INFO] [GENERAL] WinRT initialized successfully
+[2026-03-12 15:01:25] [T:53264] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-12 15:01:47] [T:53264] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-12 15:01:47] [T:53264] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 15:02:34] [T:53264] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-12 15:02:35] [T:53264] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-12 15:02:39] [T:53264] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-12 15:02:39] [T:53264] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+

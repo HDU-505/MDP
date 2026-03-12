@@ -1,23 +1,23 @@
 ﻿#include "BleHandle.h"
 #include "BLEComm.h"
+// Global Definitions
 map<string, BleHandle*>Pens;
-BleDeviceRecvDataCallBack* OnRecvDataCallBack = NULL;
-ScanedBleDeviceCallBack* OnScanedBleDeviceCallBack = NULL;
-SacnBleDeviceFinishCallBack* OnSacnFinishCallBack = NULL;
-ConnectionBleDeviceStatusCallBack* OnConnectionStatusCallBack = NULL;
+BleDeviceRecvDataCallBack* OnRecvDataCallBack = NULL;             // Data callback
+ScanedBleDeviceCallBack* OnScanedBleDeviceCallBack = NULL;        // Scan device callback
+SacnBleDeviceFinishCallBack* OnSacnFinishCallBack = NULL;         // Scan complete
+ConnectionBleDeviceStatusCallBack* OnConnectionStatusCallBack = NULL; // Connect stat callback
 
+// Forward definition
 void Characteristic_ValueChanged(GattCharacteristic const& characteristic, GattValueChangedEventArgs args);
 void ConnectionStatus_ValueChanged(BluetoothLEDevice device, winrt::Windows::Foundation::IInspectable const& args);
-
 
 BleHandle::BleHandle() {
 	IsEnd = false;
 }
 BleHandle::~BleHandle() {
-
 }
 
-
+// BLE device connection pool
 DWORD WINAPI ConnectBLEDeviceThread(LPVOID lpParameter) {
 	BleHandle* pHandle = (BleHandle*)lpParameter;
 	try
@@ -37,25 +37,32 @@ DWORD WINAPI ConnectBLEDeviceThread(LPVOID lpParameter) {
 	{
 		pHandle->IsEnd = true;
 		pHandle->services = nullptr;
-		return false;
-		//co_return false;
+		return 1;
 	}
 }
 
 bool BleHandle::ConnectBLEDevice() {
-	CreateThread(NULL, 0, ConnectBLEDeviceThread, (LPVOID)this, 0, NULL);
+	// BUG-4 FIX: Create connection thread, sleep-wait completion, release when done
+	HANDLE hThread = CreateThread(NULL, 0, ConnectBLEDeviceThread, (LPVOID)this, 0, NULL);
 	while (!IsEnd)
 	{
 		Sleep(50);
 	}
+	
+	if (hThread) {
+		CloseHandle(hThread); // Thread completed, dispose handle
+	}
+	
 	if (services == nullptr) return false;
 	return true;
 
 }
 
+// Query services UUID wrapper
+
 void BleHandle::GetAllServersUUID(unsigned int* UUIDArry, unsigned int* ArryCount) {
 
-	;//获取特征句柄
+	;// Char handle query
 	try
 	{
 		*ArryCount = 0;
@@ -68,7 +75,7 @@ void BleHandle::GetAllServersUUID(unsigned int* UUIDArry, unsigned int* ArryCoun
 		for (size_t i = 0; i < services.Size(); i++)
 		{
 			auto service = services.GetAt(i);
-			auto uuid = service.Uuid(); //获取服务uuid
+			auto uuid = service.Uuid(); // Get ID list
 			UUIDArry[*ArryCount] = uuid.Data1;
 			(*ArryCount)++;
 			map<unsigned int, ServiceInfo*>::iterator it = ServicesInfo.find(uuid.Data1);
@@ -102,7 +109,7 @@ void BleHandle::GetCharcteristicByUUID(unsigned int ServiceUUID, unsigned int* U
 		for (size_t j = 0; j < characts.Size(); j++)
 		{
 			auto charact = characts.GetAt(j);
-			auto uuid = charact.Uuid(); //获取子服务的uuid
+			auto uuid = charact.Uuid(); // Extract sub-char UUID
 			UUIDArry[*ArryCount] = uuid.Data1;
 			(*ArryCount)++;
 			map<unsigned int, CharacteristicInfo*>::iterator cit = it->second->CharacteristicsInfo.find(uuid.Data1);
@@ -179,25 +186,25 @@ void BleHandle::GetCharcteristicAction(unsigned int ServiceUUID, unsigned int Ch
 			cit->second->AuthorityInfo.IsRead = true;
 			cit->second->AuthorityInfo.IsWrite = true;
 		}*/
-		// 按位与运算来判断 Notify 权限
+		// Map characteristics
 		if ((static_cast<uint32_t>(GAttpro) & static_cast<uint32_t>(GattCharacteristicProperties::Notify)) != 0) {
 			*IsNotify = true;
 			cit->second->AuthorityInfo.IsNotify = true;
 		}
 
-		// 按位与运算来判断 Write 权限
+		// Write permission
 		if ((static_cast<uint32_t>(GAttpro) & static_cast<uint32_t>(GattCharacteristicProperties::Write)) != 0) {
 			*IsWrite = true;
 			cit->second->AuthorityInfo.IsWrite = true;
 		}
 
-		// 按位与运算来判断 Read 权限
+		// Read permission
 		if ((static_cast<uint32_t>(GAttpro) & static_cast<uint32_t>(GattCharacteristicProperties::Read)) != 0) {
 			*IsRead = true;
 			cit->second->AuthorityInfo.IsRead = true;
 		}
 
-		// 按位与运算来判断 WriteWithoutResponse 权限
+		// WriteWithoutResponse
 		if ((static_cast<uint32_t>(GAttpro) & static_cast<uint32_t>(GattCharacteristicProperties::WriteWithoutResponse)) != 0) {
 			*IsWrite = true;
 			cit->second->AuthorityInfo.IsWrite = true;
@@ -248,7 +255,11 @@ void BleHandle::ReadDataByCharcteristic(unsigned int ServiceUUID, unsigned int C
 	if (status != GattCommunicationStatus::Success) return;
 	auto value = result.Value();
 	if (OnRecvDataCallBack != NULL) {
-		OnRecvDataCallBack(it->second, ServiceUUID, CharacteristicUUID, value.data(), value.Length());
+		// BUG-8 FIX: Directly pass BleHandle over ServiceInfo address to caller
+		map<string, BleHandle*>::iterator penIt = Pens.find(this->ID);
+		if (penIt != Pens.end()) {
+			OnRecvDataCallBack(penIt->second, ServiceUUID, CharacteristicUUID, value.data(), value.Length());
+		}
 	}
 }
 
@@ -296,17 +307,26 @@ void BleHandle::RegisterReadNotify(unsigned int ServiceUUID, unsigned int Charac
 
 }
 
+// Terminate active BLE channel safely
 void BleHandle::CloseBLEDevice() {
+	// BUG-7 FIX: Break notify handlers prior to hardware device drop
+	for (auto& svcPair : ServicesInfo) {
+		if (svcPair.second) {
+			for (auto& charPair : svcPair.second->CharacteristicsInfo) {
+				if (charPair.second) {
+					charPair.second->revoker = {}; // Release token
+				}
+			}
+		}
+	}
+
 	try
 	{
-		if (device == nullptr) return;
-
-		device.Close();
+		if (device != nullptr) {
+			device.Close();
+		}
 	}
-	catch (...)
-	{
-
-	}
+	catch (...) {}
 
 	map<unsigned int, ServiceInfo*>::iterator it = ServicesInfo.begin();
 	for (it = ServicesInfo.begin(); it != ServicesInfo.end(); it++)
@@ -322,7 +342,7 @@ void BleHandle::CloseBLEDevice() {
 void Characteristic_ValueChanged(GattCharacteristic const& characteristic, GattValueChangedEventArgs args)
 {
 	auto Device = characteristic.Service().Device();
-	auto id = Device.BluetoothDeviceId(); //获取蓝牙唯一id
+	auto id = Device.BluetoothDeviceId(); // Target device identifier
 	char ID[100] = { 0 };
 	char Address[100] = { 0 };
 	ConvertLPWSTRToChar(id.Id().c_str(), (unsigned char*)ID);
@@ -337,7 +357,7 @@ void Characteristic_ValueChanged(GattCharacteristic const& characteristic, GattV
 }
 
 void ConnectionStatus_ValueChanged(BluetoothLEDevice device, winrt::Windows::Foundation::IInspectable const& args) {
-	auto id = device.BluetoothDeviceId(); //获取蓝牙唯一id
+	auto id = device.BluetoothDeviceId(); // Identifier match token
 	char ID[100] = { 0 };
 	char Address[100] = { 0 };
 	ConvertLPWSTRToChar(id.Id().c_str(), (unsigned char*)ID);
