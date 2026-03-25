@@ -4,12 +4,18 @@
 #include <map>
 #include <string>
 #include <mutex>
+#include <chrono>
+#include <thread>
 using namespace std;
 
 map<uint64_t, int>BleDevices;
 std::mutex bleDevicesMtx; // BUG-6 FIX: Thread safety for BleDevices
+std::thread g_scanThread;
+std::mutex g_scanThreadMtx;
 
 BluetoothLEAdvertisementWatcher m_btWatcher;
+winrt::event_token m_btWatcherToken{};
+std::atomic<bool> g_isScanning{false};
 
 // Convert char* to wide string LPWSTR
 LPWSTR ConvertCharToLPWSTR(char* szString, WCHAR* addrchar)
@@ -74,6 +80,9 @@ bool BLEIsLowEnergySupported() {
 
 
 void Scanblebackfun(BluetoothLEAdvertisementWatcher w, BluetoothLEAdvertisementReceivedEventArgs e) {
+	if (!g_isScanning) {
+		return; // Instant flush: drop already-queued Windows thread pool callbacks if scan officially ended
+	}
 	
 	if (e.AdvertisementType() == BluetoothLEAdvertisementType::ConnectableUndirected)
 	{
@@ -82,16 +91,25 @@ void Scanblebackfun(BluetoothLEAdvertisementWatcher w, BluetoothLEAdvertisementR
 		
 		{
 			std::lock_guard<std::mutex> lock(bleDevicesMtx); // Lock map
+			static std::map<uint64_t, std::chrono::steady_clock::time_point> lastReportTime;
+			auto now = std::chrono::steady_clock::now();
 			if (BleDevices.find(address) != BleDevices.end()) {
-				// Skip if device exists to suppress console spam
-				return;
+				// Throttle rediscovery events to suppress console spam but allow SDK to catch disconnected devices
+				if (std::chrono::duration_cast<std::chrono::seconds>(now - lastReportTime[address]).count() < 3) {
+					return;
+				}
 			}
-			BleDevices.insert(pair<uint64_t, int>(address, Rssi));
+			BleDevices[address] = Rssi;
+			lastReportTime[address] = now;
 		}
 		
 		// Map device properties
 		try {
 			BluetoothLEDevice dev = BluetoothLEDevice::FromBluetoothAddressAsync(address).get();
+			if (!dev) {
+				sdk::Logger::Log(sdk::LogLevel::DEBUG, sdk::ErrorCategory::BLUETOOTH, std::string("[BLEComm] Discovered device but OS returned null for address: ") + std::to_string(address));
+				return;
+			}
 			int cid = 0;
 			auto id = dev.BluetoothDeviceId();
 			auto name = dev.Name();
@@ -124,6 +142,9 @@ void Scanblebackfun(BluetoothLEAdvertisementWatcher w, BluetoothLEAdvertisementR
 				strcpy_s(Address, 100, "UNKNOWN");
 			}
 
+			sdk::Logger::Log(sdk::LogLevel::DEBUG, sdk::ErrorCategory::BLUETOOTH, 
+				std::string("[BLEComm] Discovered valid BLE device: ") + Name + " (MAC: " + Address + ") RSSI: " + std::to_string(e.RawSignalStrengthInDBm()));
+
 			if (OnScanedBleDeviceCallBack != NULL) {
 				OnScanedBleDeviceCallBack(ID, Name, Address, e.RawSignalStrengthInDBm(), DataSections, view.Size());
 			}
@@ -140,15 +161,22 @@ DWORD WINAPI ScanBleThread(LPVOID lpParameter) {
 	int timeout = (int)(intptr_t)lpParameter;
 	
 	try {
-		m_btWatcher.ScanningMode(BluetoothLEScanningMode::Passive);
-		m_btWatcher.Received(Scanblebackfun);
+		sdk::Logger::Log(sdk::LogLevel::DEBUG, sdk::ErrorCategory::BLUETOOTH, "[BLEComm] ScanBleThread starting watcher with timeout " + std::to_string(timeout) + "ms");
 		
+		// Reset watcher to completely clear any OS-level internal queues from previous runs
+		m_btWatcher = BluetoothLEAdvertisementWatcher();
+		m_btWatcher.ScanningMode(BluetoothLEScanningMode::Active);
+		m_btWatcherToken = m_btWatcher.Received(Scanblebackfun);
+		
+		g_isScanning = true;
 		m_btWatcher.Start();
 		
 		for(int i = 0; i< timeout/50;i++)
 		{
 			Sleep(50);
 			if (m_btWatcher.Status() == BluetoothLEAdvertisementWatcherStatus::Stopped) {
+				g_isScanning = false;
+				m_btWatcher.Received(m_btWatcherToken); // REVOKE HANDLE
 				// BUG-1 FIX: trigger callback even if exited early
 				if (OnSacnFinishCallBack != NULL) {
 					OnSacnFinishCallBack();
@@ -157,7 +185,10 @@ DWORD WINAPI ScanBleThread(LPVOID lpParameter) {
 			}
 		}
 
+		g_isScanning = false;
 		m_btWatcher.Stop();
+		m_btWatcher.Received(m_btWatcherToken); // REVOKE HANDLE
+		sdk::Logger::Log(sdk::LogLevel::DEBUG, sdk::ErrorCategory::BLUETOOTH, "[BLEComm] ScanBleThread stopped and handler revoked successfully.");
 		
 		if (OnSacnFinishCallBack != NULL) {
 			OnSacnFinishCallBack();
@@ -178,16 +209,22 @@ void ScanBLEDevice(int timeout) {
 		std::lock_guard<std::mutex> lock(bleDevicesMtx);
 		BleDevices.clear();
 	}
-	// BUG-5 FIX: save and close thread handle
-	HANDLE hThread = CreateThread(NULL, 0, ScanBleThread, (LPVOID)(intptr_t)timeout, 0, NULL);
-	if (hThread) {
-		CloseHandle(hThread);
+	// FIX: Use std::thread for correct thread lifecycle management
+	std::lock_guard<std::mutex> threadLock(g_scanThreadMtx);
+	if (g_scanThread.joinable()) {
+		g_scanThread.join();
 	}
+	g_scanThread = std::thread(ScanBleThread, (LPVOID)(intptr_t)timeout);
 }
 
 void StopScanBLEDevice()
 {
+	g_isScanning = false; // Immediately cease processing backlogged callbacks
 	m_btWatcher.Stop();
+	std::lock_guard<std::mutex> threadLock(g_scanThreadMtx);
+	if (g_scanThread.joinable()) {
+		g_scanThread.join();
+	}
 }
 
 HANDLE ConnectBLEDevice(char* ID) {
@@ -276,5 +313,23 @@ void CloseAllBLEDevices() {
 			catch (...) {}
 		}
 	}
+	
+	StopScanBLEDevice();
 }
+
+// 拦截控制台异常退出的处理函数 (Ctrl+C, Ctrl+Break, 关闭窗口等)
+BOOL WINAPI BleConsoleCtrlHandler(DWORD dwCtrlType) {
+	if (dwCtrlType == CTRL_C_EVENT || dwCtrlType == CTRL_CLOSE_EVENT || dwCtrlType == CTRL_BREAK_EVENT) {
+		sdk::Logger::Log(sdk::LogLevel::DEBUG, sdk::ErrorCategory::BLUETOOTH, "[BLEComm] Intercepted Console Exit Event. Forcing synchronous BLE disconnect...");
+		CloseAllBLEDevices();
+	}
+	return FALSE; // 允许默认进程终止继续进行
+}
+
+// 利用全局静态结构的构造函数在 DLL/SDK 加载时自动注册拦截器
+struct BleLifecycleManager {
+	BleLifecycleManager() {
+		SetConsoleCtrlHandler(BleConsoleCtrlHandler, TRUE);
+	}
+} g_bleLifecycleManager;
 

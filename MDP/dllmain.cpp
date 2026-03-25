@@ -14,12 +14,12 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     case DLL_PROCESS_ATTACH:
         // Initialize the robust logging system
         sdk::Logger::Initialize(
-            sdk::LogLevel::INFO,    // Debug level: output all logs
-            false,                    // Enable console output
+            sdk::LogLevel::DEBUG,    // Debug level: output all logs
+            true,                    // Enable console output
             true,                    // Enable file output
             "sdk.log"                // Log file path
         );
-
+        
         // Initialize WinRT (MANDATORY for BLE communication)
         try {
             winrt::init_apartment();

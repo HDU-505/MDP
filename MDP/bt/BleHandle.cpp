@@ -1,5 +1,7 @@
-﻿#include "BleHandle.h"
+#include "BleHandle.h"
 #include "BLEComm.h"
+#include "../ErrorHandler.h"
+#include <thread>
 // Global Definitions
 map<string, BleHandle*>Pens;
 BleDeviceRecvDataCallBack* OnRecvDataCallBack = NULL;             // Data callback
@@ -18,40 +20,59 @@ BleHandle::~BleHandle() {
 }
 
 // BLE device connection pool
-DWORD WINAPI ConnectBLEDeviceThread(LPVOID lpParameter) {
-	BleHandle* pHandle = (BleHandle*)lpParameter;
+void ConnectBLEDeviceThreadBody(BleHandle* pHandle) {
 	try
 	{
 		pHandle->IsEnd = false;
 		WCHAR ID[255] = { 0 };
 		ConvertCharToLPWSTR((char*)(pHandle->ID), ID);
 		hstring hst(ID);
+		sdk::Logger::Log(sdk::LogLevel::DEBUG, sdk::ErrorCategory::BLUETOOTH, std::string("[BleHandle] Thread started, attempting connection to ID: ") + (char*)(pHandle->ID));
 		pHandle->device = BluetoothLEDevice::FromIdAsync(hst).get();
+		if (!pHandle->device) {
+			sdk::Logger::Log(sdk::LogLevel::DEBUG, sdk::ErrorCategory::BLUETOOTH, "[BleHandle] BluetoothLEDevice::FromIdAsync returned null. OS OS rejected connection or device un-cached.");
+			pHandle->IsEnd = true;
+			pHandle->services = nullptr;
+			return;
+		}
 		pHandle->device.ConnectionStatusChanged(ConnectionStatus_ValueChanged);
-		pHandle->result = pHandle->device.GetGattServicesAsync(BluetoothCacheMode::Uncached).get();
+		
+		sdk::Logger::Log(sdk::LogLevel::DEBUG, sdk::ErrorCategory::BLUETOOTH, "[BleHandle] Connection handle acquired, querying GATT Services...");
+		pHandle->result = pHandle->device.GetGattServicesAsync(BluetoothCacheMode::Cached).get();
+		if (pHandle->result.Status() != GattCommunicationStatus::Success) {
+			sdk::Logger::Log(sdk::LogLevel::DEBUG, sdk::ErrorCategory::BLUETOOTH, "[BleHandle] GetGattServicesAsync failed. Fake connection or immediate OS drop detected. Closing handle.");
+			pHandle->device.Close();
+			pHandle->device = nullptr;
+			pHandle->IsEnd = true;
+			pHandle->services = nullptr;
+			return;
+		}
+		sdk::Logger::Log(sdk::LogLevel::DEBUG, sdk::ErrorCategory::BLUETOOTH, "[BleHandle] Successfully retrieved GATT services. Connection confirmed solid.");
 		pHandle->services = pHandle->result.Services();
 		pHandle->IsEnd = true;
-		return 0;
+	}
+	catch (const winrt::hresult_error&) {
+		pHandle->IsEnd = true;
+		pHandle->services = nullptr;
+	}
+	catch (const std::exception&) {
+		pHandle->IsEnd = true;
+		pHandle->services = nullptr;
 	}
 	catch (...)
 	{
 		pHandle->IsEnd = true;
 		pHandle->services = nullptr;
-		return 1;
 	}
 }
 
 bool BleHandle::ConnectBLEDevice() {
-	// BUG-4 FIX: Create connection thread, sleep-wait completion, release when done
-	HANDLE hThread = CreateThread(NULL, 0, ConnectBLEDeviceThread, (LPVOID)this, 0, NULL);
-	while (!IsEnd)
-	{
-		Sleep(50);
-	}
-	
-	if (hThread) {
-		CloseHandle(hThread); // Thread completed, dispose handle
-	}
+	// Force cleanup of any old connections or dangling handles before attempting to connect
+	CloseBLEDevice();
+
+	// FIX: Use std::thread for connection and proper lifecycle management
+	std::thread t(ConnectBLEDeviceThreadBody, this);
+	t.join(); // Block and wait for it to finish cleanly
 	
 	if (services == nullptr) return false;
 	return true;
@@ -66,10 +87,6 @@ void BleHandle::GetAllServersUUID(unsigned int* UUIDArry, unsigned int* ArryCoun
 	try
 	{
 		*ArryCount = 0;
-		for (int i = 0; i < 20 && services == NULL; i++)
-		{
-			Sleep(100);
-		}
 		if (services == nullptr) return;
 		//auto services = result.Services();
 		for (size_t i = 0; i < services.Size(); i++)
@@ -103,7 +120,7 @@ void BleHandle::GetCharcteristicByUUID(unsigned int ServiceUUID, unsigned int* U
 		map<unsigned int, ServiceInfo*>::iterator it = ServicesInfo.find(ServiceUUID);
 
 		if (it == ServicesInfo.end()) return;
-		auto charact = it->second->Service.GetCharacteristicsAsync().get();
+		auto charact = it->second->Service.GetCharacteristicsAsync(BluetoothCacheMode::Cached).get();
 		auto characts = charact.Characteristics();
 
 		for (size_t j = 0; j < characts.Size(); j++)
@@ -233,8 +250,8 @@ bool BleHandle::WriteDateByCharcteristic(unsigned int ServiceUUID, unsigned int 
 		winrt::Windows::Storage::Streams::DataWriter writer;
 		writer.WriteBytes(array_view<uint8_t const>(buff, buff + lenght));
 		winrt::Windows::Storage::Streams::IBuffer buffer = writer.DetachBuffer();
-		auto status = cit->second->characteristic.WriteValueAsync(buffer);
-		if (status.Status() == Windows::Foundation::AsyncStatus::Error) return false;
+		auto status = cit->second->characteristic.WriteValueAsync(buffer).get();
+		if (status != GattCommunicationStatus::Success) return false;
 		return true;
 	}
 	catch (...)
@@ -287,15 +304,6 @@ void BleHandle::RegisterReadNotify(unsigned int ServiceUUID, unsigned int Charac
 		}
 
 		auto statuss = cit->second->characteristic.WriteClientCharacteristicConfigurationDescriptorAsync(cccdValue);
-
-		for (int i = 0; i < 10; i++)
-		{
-			Sleep(20);
-		}
-		if (statuss.Status() == Windows::Foundation::AsyncStatus::Error)
-		{
-			return;
-		}
 		auto status = statuss.get();
 		if (status != GattCommunicationStatus::Success) return;
 
@@ -315,15 +323,24 @@ void BleHandle::CloseBLEDevice() {
 			for (auto& charPair : svcPair.second->CharacteristicsInfo) {
 				if (charPair.second) {
 					charPair.second->revoker = {}; // Release token
+					charPair.second->characteristic = nullptr; // Ensure reference drop
 				}
 			}
+			try {
+				// Explicitly close the GATT device service to notify OS to tear down quickly
+				svcPair.second->Service.Close();
+				svcPair.second->Service = nullptr;
+			} catch (...) {}
 		}
 	}
 
 	try
 	{
+		services = nullptr;
+		result = nullptr;
 		if (device != nullptr) {
 			device.Close();
+			device = nullptr;
 		}
 	}
 	catch (...) {}
@@ -364,6 +381,10 @@ void ConnectionStatus_ValueChanged(BluetoothLEDevice device, winrt::Windows::Fou
 
 	map<string, BleHandle*>::iterator it = Pens.find(ID);
 	if (it == Pens.end()) return;
+
+	sdk::Logger::Log(sdk::LogLevel::DEBUG, sdk::ErrorCategory::BLUETOOTH, 
+		std::string("[BleHandle] ConnectionStatus_ValueChanged callback invoked for ") + ID + 
+		"! New status: " + (device.ConnectionStatus() == BluetoothConnectionStatus::Connected ? "Connected" : "Disconnected"));
 
 	if (OnConnectionStatusCallBack != NULL) {
 		if (device.ConnectionStatus() == BluetoothConnectionStatus::Connected) OnConnectionStatusCallBack(it->second, it->second->Address, true);

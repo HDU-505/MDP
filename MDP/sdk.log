@@ -4397,3 +4397,172 @@
   Zero-filled  : 0
   Decode errors: 0
 
+[2026-03-25 14:54:35] [T:54188] [INFO] [GENERAL] WinRT initialized successfully
+[2026-03-25 14:54:35] [T:54188] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-25 14:54:44] [T:45604] [INFO] [GENERAL] MDP SDK Unloading
+[2026-03-25 14:54:49] [T:50100] [INFO] [GENERAL] WinRT initialized successfully
+[2026-03-25 14:54:49] [T:50100] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-25 14:55:17] [T:50100] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-25 14:55:17] [T:50100] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-25 14:55:23] [T:50100] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-25 14:55:23] [T:50100] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-25 14:55:27] [T:50100] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-25 14:55:27] [T:50100] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-25 14:55:42] [T:50100] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-25 14:55:42] [T:50100] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-25 15:02:48] [T:33264] [INFO] [GENERAL] WinRT initialized successfully
+[2026-03-25 15:02:48] [T:33264] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-25 15:03:22] [T:7396] [INFO] [GENERAL] MDP SDK Unloading
+[2026-03-25 15:03:27] [T:7580] [INFO] [GENERAL] WinRT initialized successfully
+[2026-03-25 15:03:27] [T:7580] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-25 15:04:16] [T:7580] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-25 15:04:16] [T:7580] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-25 15:04:22] [T:7580] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-25 15:04:22] [T:7580] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-25 15:04:26] [T:7580] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-25 15:04:26] [T:7580] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-25 16:01:10] [T:49424] [INFO] [GENERAL] WinRT initialized successfully
+[2026-03-25 16:01:10] [T:49424] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-25 16:01:41] [T:49424] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-25 16:01:41] [T:49424] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-25 16:01:47] [T:49424] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-25 16:01:47] [T:49424] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-25 16:01:52] [T:49424] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-25 16:01:52] [T:49424] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-25 16:02:00] [T:49424] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-25 16:02:01] [T:49424] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-25 16:02:21] [T:54236] [INFO] [GENERAL] WinRT initialized successfully
+[2026-03-25 16:02:21] [T:54236] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-25 16:02:51] [T:54236] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-25 16:02:51] [T:54236] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-25 16:02:56] [T:54236] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-25 16:02:56] [T:54236] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-25 16:03:00] [T:54236] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-25 16:03:01] [T:54236] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-25 16:06:07] [T:45880] [INFO] [GENERAL] WinRT initialized successfully
+[2026-03-25 16:06:07] [T:45880] [INFO] [GENERAL] MDP SDK Loaded
+[2026-03-25 16:07:23] [T:45880] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-25 16:07:23] [T:45880] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-25 16:07:28] [T:45880] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-25 16:07:29] [T:45880] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 0
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+
+[2026-03-25 16:07:33] [T:45880] [WARN] [GENERAL] Command sent but no data received within timeout.Hardware may start sending data later.
+[2026-03-25 16:07:34] [T:45880] [INFO] [GENERAL] [PacketLoss Report]
+  Received     : 50
+  Lost (seq)   : 0
+  Loss rate    : 0.000%
+  Interpolated : 0
+  Zero-filled  : 0
+  Decode errors: 0
+

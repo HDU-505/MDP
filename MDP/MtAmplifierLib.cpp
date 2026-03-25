@@ -36,6 +36,7 @@ void MtScanedBleDeviceCallBack(const char* ID, const char* PenName, const char* 
 {
 	// 閫氳繃鍚嶅瓧杩囨护 Mindtooth 璁惧骞朵繚瀛樺畬鏁寸殑璁惧淇℃伅 (鍚嶇О + MAC)
 	if (string(PenName).find("Mindtooth") != string::npos) {
+		std::cout << "find mindtooth" << std::endl;
 		bleDeviceManager.addDevice(ID, PenName, PenMac);
 	}
 }

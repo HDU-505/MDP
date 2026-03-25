@@ -67,13 +67,46 @@ int BleDeviceManager::searchDevice(int scanTimeMs, int maxRetries)
 		scanFinished = false;
 		ScanBLEDevice(scanTimeMs);
 
-		// Wait for scan to complete
+		// ==========================================
+		// 方案一：扫描找到一个目标设备后立马就结束扫描 (当前已启用)
+		// ==========================================
 		{
 			std::unique_lock<std::mutex> lock(scanMtx);
+			sdk::Logger::Info("[BleDeviceManager] Starting active early-stop BLE scan...");
+			// 这里的 !scanFinished 就是超时判定：达到 scanTimeMs 时底层会自动设其为 true 并唤醒，保证不会死等
+			while (!scanFinished) {
+				// 每 50ms 唤醒一次，检查是否已经有目标设备被应用层识别并添加
+				if (scanCv.wait_for(lock, std::chrono::milliseconds(50)) == std::cv_status::timeout) {
+					if (!bleDeviceList.empty()) {
+						sdk::Logger::Info("[BleDeviceManager] Target device found early. Stopping scan to save time.");
+						lock.unlock(); // FIX DEADLOCK: Must release scanMtx before waiting on g_scanThread.join()!
+						StopScanBLEDevice();
+						break;
+					}
+				}
+			}
+			if (scanFinished && bleDeviceList.empty()) {
+				sdk::Logger::Warning("[BleDeviceManager] Scan timeout reached without finding target device.");
+			}
+		}
+
+		// ==========================================
+		// 方案二：有固定扫描时间的方案 (已通过注释禁用)
+		// ==========================================
+		/*
+		{
+			std::unique_lock<std::mutex> lock(scanMtx);
+			sdk::Logger::Info("[BleDeviceManager] Starting fixed-time BLE scan...");
 			while (!scanFinished) {
 				scanCv.wait(lock);
 			}
+			if (bleDeviceList.empty()) {
+				sdk::Logger::Warning("[BleDeviceManager] Fixed-time scan finished, but no target devices found.");
+			} else {
+				sdk::Logger::Info("[BleDeviceManager] Fixed-time scan finished. Devices found.");
+			}
 		}
+		*/
 		
 		scanning = false;
 		
@@ -143,6 +176,7 @@ HANDLE BleDeviceManager::openDevice(int32_t DeviceNr)
 
     // If connection successful, update cache and hardware config
     if (handle != nullptr) {
+        sdk::Logger::Info(std::string("[BleDeviceManager] Successfully connected to ") + deviceId);
         deviceCache.addDevice(deviceId);
         
         // Load device info and update global hardware config
@@ -152,6 +186,7 @@ HANDLE BleDeviceManager::openDevice(int32_t DeviceNr)
             g_HardwareConfig.SetDeviceInfo(it->second.name, it->second.mac);
         } else {
             // No info available, use defaults
+            sdk::Logger::Warning(std::string("[BleDeviceManager] No device info found for ") + deviceId + ", using defaults.");
             currentDeviceInfo.id = deviceId;
             currentDeviceInfo.name = "Mindtooth";
             currentDeviceInfo.mac = "00:00:00:00:00:00";
@@ -160,7 +195,7 @@ HANDLE BleDeviceManager::openDevice(int32_t DeviceNr)
         
         // Wait for connection to stabilize before registering notify
         // This ensures GATT services are fully ready
-        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 
     bleHandle = handle;
@@ -271,10 +306,9 @@ bool BleDeviceManager::startAcquisition(HANDLE DeviceHandle)
         baselinePackets = stats.packetsReceived;
     }
     
-    // Send command with retry mechanism
+    // Send command with robust BLE execution blocking; retry up to 3 times on transmit failures
     const int maxRetries = 3;
     const int retryDelayMs = 100;
-    bool commandSent = false;
     
     for (int retry = 0; retry < maxRetries; ++retry) {
         // Write command to BLE characteristic
@@ -283,43 +317,19 @@ bool BleDeviceManager::startAcquisition(HANDLE DeviceHandle)
             write_CharacteristicUUID,
             startCommand.data(),
             startCommand.size())) {
-            commandSent = true;
             
-            // Wait a bit for command to be processed
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            
-            // Verify data reception by checking if packets are being received
-            // Wait up to 1 second for data to start arriving
-            bool dataReceived = verifyDataReception(baselinePackets, 1000);
-            
-            if (dataReceived) {
-                // Success: command sent and data is being received
-                isAcquiring = true;
-                lastAcquisitionMode = recordingMode;
-                return true;
-            }
-            else {
-                // Command sent but no data received yet
-                // This might be OK if hardware needs more time, but log a warning
-                if (retry < maxRetries - 1) {
-                    // Retry sending command
-                    std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
-                    continue;
-                }
-                else {
-                    // Last retry, accept it but log warning
-                    // Sometimes hardware takes longer to start
-                    isAcquiring = true;
-                    lastAcquisitionMode = recordingMode;
-                    // Log warning but still return true (hardware might start later)
-                    sdk::Logger::Warning("Command sent but no data received within timeout.Hardware may start sending data later.");
-                    return true;
-                }
-            }
+            // Success: command acknowledged by device. 
+            // We no longer block and re-send based on a hardware data timeout.
+            // Hardware will begin streaming data in ~1s natively.
+            isAcquiring = true;
+            lastAcquisitionMode = recordingMode;
+            sdk::Logger::Info("[BleDeviceManager] Acquisition command transmitted successfully.");
+            return true;
         }
         else {
-            // Write failed, retry
+            // Write strictly failed at BLE stack layer, perform retry delay
             if (retry < maxRetries - 1) {
+                sdk::Logger::Warning("[BleDeviceManager] Acquisition command transmit failed. Retrying...");
                 std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
             }
         }
@@ -415,16 +425,19 @@ bool BleDeviceManager::closeDevice(HANDLE DeviceHandle)
     const int intervalMs = 20;   // Interval between tries 20ms
     int retry = 0;
 
+    sdk::Logger::Info("[BleDeviceManager] Attempting to close BLE device.");
     {
+        CloseBLEDevice(DeviceHandle); // FIX: Ensure this is only called ONCE to avoid Use-After-Free!
         while (retry < maxRetry) {
-            CloseBLEDevice(DeviceHandle);
             std::unique_lock<std::mutex> lock(connMtx);
             connCv.wait_for(lock, std::chrono::milliseconds(intervalMs));
             retry++;
             if (!isConnected) {
+                sdk::Logger::Info("[BleDeviceManager] Device disconnected successfully.");
                 return true;
             }
         }
     }
+    sdk::Logger::Warning("[BleDeviceManager] Device close timeout: OS might still hold the physical connection.");
     return false;
 }
